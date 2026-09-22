@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE resources PUBLIC
+        "-//Payara.fish//DTD Payara Server 4 Resource Definitions//EN"
+        "https://docs.payara.fish/schemas/payara-resources_1_8.dtd">
+<resources>
+    <jdbc-connection-pool
+            name="Lab1Pool"
+            res-type="javax.sql.DataSource"
+            datasource-classname="org.postgresql.ds.PGSimpleDataSource"
+            steady-pool-size="2"
+            max-pool-size="16"
+            is-connection-validation-required="true"
+            connection-validation-method="auto-commit">
+        <property name="URL" value="${ENV=DB_URL}"/>
+        <property name="User" value="${ENV=DB_USER}"/>
+        <property name="Password" value="${ENV=DB_PASSWORD}"/>
+    </jdbc-connection-pool>
+
+    <jdbc-resource
+            enabled="true"
+            jndi-name="java:app/jdbc/Lab1DS"
+            object-type="user"
+            pool-name="Lab1Pool"/>
+</resources>

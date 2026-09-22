@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Справочники — ЛР1 v0.5</title>
+    <style>
+        :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#171717; }
+        body { max-width:1200px; margin:26px auto; padding:0 16px 40px; }
+        nav { display:flex; gap:8px; margin:14px 0 22px; }
+        nav a { padding:8px 12px; border:1px solid #bbb; border-radius:6px; text-decoration:none; color:#171717; }
+        nav a.active { background:#171717; color:white; border-color:#171717; }
+        h2 { margin-top:28px; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align:top; }
+        th { background:#f5f5f5; }
+        button, select { padding:8px 10px; font:inherit; }
+        button { cursor:pointer; }
+        .error { color:#b00020; white-space:pre-wrap; margin:10px 0; }
+        dialog { width:min(520px, 94vw); border:1px solid #555; }
+        dialog label { display:flex; flex-direction:column; gap:6px; margin:14px 0; }
+        .actions { display:flex; gap:8px; margin-top:14px; }
+    </style>
+</head>
+<body>
+<h1>Справочники</h1>
+<nav>
+    <a href="index.html">Организации</a>
+    <a href="special.html">Специальные операции</a>
+    <a href="references.html" class="active">Справочники</a>
+</nav>
+
+<div id="error" class="error"></div>
+
+<h2>Coordinates</h2>
+<table>
+    <thead><tr><th>ID</th><th>X</th><th>Y</th><th>Actions</th></tr></thead>
+    <tbody id="coordinatesRows"></tbody>
+</table>
+
+<h2>Address</h2>
+<table>
+    <thead><tr><th>ID</th><th>Zip code</th><th>Town</th><th>Actions</th></tr></thead>
+    <tbody id="addressesRows"></tbody>
+</table>
+
+<h2>Location</h2>
+<table>
+    <thead><tr><th>ID</th><th>Name</th><th>X</th><th>Y</th><th>Z</th><th>Actions</th></tr></thead>
+    <tbody id="locationsRows"></tbody>
+</table>
+
+<dialog id="replacementDialog">
+    <h2 id="replacementTitle">Выбор замены</h2>
+    <label>Новый объект
+        <select id="replacementSelect"></select>
+    </label>
+    <div id="replacementError" class="error"></div>
+    <div class="actions">
+        <button type="button" onclick="replaceAndDelete()">Перепривязать и удалить</button>
+        <button type="button" onclick="replacementDialog.close()">Отмена</button>
+    </div>
+</dialog>
+
+<script>
+const refApi = 'api/reference';
+const $ = id => document.getElementById(id);
+const replacementDialog = $('replacementDialog');
+let refs = {coordinates:[], addresses:[], locations:[]};
+let pendingDelete = null;
+let pageLeaving = false;
+let organizationSocket = null;
+
+function beginPageLeave() {
+    if (pageLeaving) return;
+    pageLeaving = true;
+    if (organizationSocket) {
+        organizationSocket.onclose = null;
+        try { organizationSocket.close(); } catch (_) {}
+        organizationSocket = null;
+    }
+}
+
+function showError(targetId, error) {
+    if (pageLeaving || error?.name === 'AbortError') return;
+    $(targetId).textContent = error?.message || String(error);
+}
+
+document.querySelectorAll('nav a').forEach(link => link.addEventListener('click', beginPageLeave));
+window.addEventListener('pagehide', beginPageLeave);
+
+async function request(url, options={}) {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+        let body = null;
+        try { body = await response.json(); } catch (_) {}
+        const details = Array.isArray(body?.details) && body.details.length ? `\n${body.details.join('\n')}` : '';
+        throw new Error((body?.error || `${response.status} ${response.statusText}`) + details);
+    }
+    return response.status === 204 ? null : response.json();
+}
+
+async function loadData() {
+    try {
+        $('error').textContent = '';
+        [refs.coordinates, refs.addresses, refs.locations] = await Promise.all([
+            request(`${refApi}/coordinates`),
+            request(`${refApi}/addresses`),
+            request(`${refApi}/locations`)
+        ]);
+        render();
+    } catch (e) {
+        showError('error', e);
+    }
+}
+
+function render() {
+    $('coordinatesRows').innerHTML = refs.coordinates.map(c => `<tr>
+        <td>${c.id}</td><td>${c.x}</td><td>${c.y}</td>
+        <td><button type="button" onclick="deleteReference('coordinates', ${c.id})">Удалить</button></td>
+    </tr>`).join('');
+
+    $('addressesRows').innerHTML = refs.addresses.map(a => `<tr>
+        <td>${a.id}</td><td>${escapeHtml(a.zipCode)}</td><td>${escapeHtml(locationLabel(a.town))}</td>
+        <td><button type="button" onclick="deleteReference('addresses', ${a.id})">Удалить</button></td>
+    </tr>`).join('');
+
+    $('locationsRows').innerHTML = refs.locations.map(l => `<tr>
+        <td>${l.id}</td><td>${escapeHtml(l.name)}</td><td>${l.x}</td><td>${l.y}</td><td>${l.z}</td>
+        <td><button type="button" onclick="deleteReference('locations', ${l.id})">Удалить</button></td>
+    </tr>`).join('');
+}
+
+async function deleteReference(kind, id) {
+    try {
+        $('error').textContent = '';
+        const usage = await request(`${refApi}/${kind}/${id}/usage`);
+        if (Number(usage.totalReferences) === 0) {
+            await request(`${refApi}/${kind}/${id}`, {method:'DELETE'});
+            await loadData();
+            return;
+        }
+
+        const candidates = refs[kind].filter(item => item.id !== id);
+        if (!candidates.length) {
+            throw new Error('Нет объекта для замены');
+        }
+
+        pendingDelete = {kind, id};
+        $('replacementTitle').textContent = `${kindLabel(kind)} #${id}`;
+        $('replacementSelect').innerHTML = candidates
+            .map(item => `<option value="${item.id}">${escapeHtml(referenceLabel(kind, item))}</option>`)
+            .join('');
+        $('replacementError').textContent = '';
+        replacementDialog.showModal();
+    } catch (e) {
+        showError('error', e);
+    }
+}
+
+async function replaceAndDelete() {
+    if (!pendingDelete) return;
+    try {
+        $('replacementError').textContent = '';
+        const replacementId = Number($('replacementSelect').value);
+        const {kind, id} = pendingDelete;
+        await request(`${refApi}/${kind}/${id}?replacementId=${replacementId}`, {method:'DELETE'});
+        pendingDelete = null;
+        replacementDialog.close();
+        await loadData();
+    } catch (e) {
+        showError('replacementError', e);
+    }
+}
+
+function kindLabel(kind) {
+    if (kind === 'coordinates') return 'Coordinates';
+    if (kind === 'addresses') return 'Address';
+    return 'Location';
+}
+
+function referenceLabel(kind, item) {
+    if (kind === 'coordinates') return `#${item.id}: (${item.x}, ${item.y})`;
+    if (kind === 'addresses') return `#${item.id}: ${item.zipCode} → ${item.town.name}`;
+    return locationLabel(item);
+}
+
+function locationLabel(l) {
+    return `#${l.id}: ${l.name} (${l.x}, ${l.y}, ${l.z})`;
+}
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
+function connectWebSocket() {
+    if (pageLeaving) return;
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+    organizationSocket = new WebSocket(`${protocol}//${location.host}${base}ws/organizations`);
+    organizationSocket.onmessage = () => { if (!pageLeaving) loadData(); };
+    organizationSocket.onclose = () => {
+        organizationSocket = null;
+        if (!pageLeaving) setTimeout(connectWebSocket, 1500);
+    };
+}
+
+loadData();
+connectWebSocket();
+</script>
+</body>
+</html>

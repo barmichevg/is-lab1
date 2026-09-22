@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Специальные операции — ЛР1 v0.5.1</title>
+    <style>
+        :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#171717; }
+        body { max-width:1200px; margin:26px auto; padding:0 16px 40px; }
+        nav { display:flex; gap:8px; margin:14px 0 22px; }
+        nav a { padding:8px 12px; border:1px solid #bbb; border-radius:6px; text-decoration:none; color:#171717; }
+        nav a.active { background:#171717; color:white; border-color:#171717; }
+        .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .card { border:1px solid #ddd; border-radius:8px; padding:16px; }
+        .card.wide { grid-column:1/-1; }
+        .fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+        .full { grid-column:1/-1; }
+        label { display:flex; flex-direction:column; gap:5px; }
+        input, select, button { padding:8px 10px; font:inherit; }
+        button { cursor:pointer; }
+        table { width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; }
+        th, td { border:1px solid #ddd; padding:7px; text-align:left; vertical-align:top; }
+        th { background:#f5f5f5; }
+        .error { color:#b00020; white-space:pre-wrap; margin:10px 0; }
+        .success { color:#087b35; white-space:pre-wrap; margin:10px 0; }
+        .hidden { display:none !important; }
+        @media(max-width:800px) { .grid,.fields { grid-template-columns:1fr; } .card.wide,.full { grid-column:1; } }
+    </style>
+</head>
+<body>
+<h1>Специальные операции</h1>
+<nav>
+    <a href="index.html">Организации</a>
+    <a href="special.html" class="active">Специальные операции</a>
+    <a href="references.html">Справочники</a>
+</nav>
+
+<div id="globalError" class="error"></div>
+<div class="grid">
+    <section class="card">
+        <h2>Минимум employeesCount</h2>
+        <button type="button" onclick="minEmployees()">Выполнить</button>
+    </section>
+
+    <section class="card">
+        <h2>Name начинается с...</h2>
+        <label>Подстрока
+            <input id="prefix" placeholder="Например: ITMO">
+        </label>
+        <div style="margin-top:12px"><button type="button" onclick="nameStartsWith()">Выполнить</button></div>
+    </section>
+
+    <section class="card">
+        <h2>Type больше заданного</h2>
+        <label>Тип
+            <select id="typeValue">
+                <option>COMMERCIAL</option>
+                <option>GOVERNMENT</option>
+                <option>PRIVATE_LIMITED_COMPANY</option>
+            </select>
+        </label>
+        <div style="margin-top:12px"><button type="button" onclick="typeGreaterThan()">Выполнить</button></div>
+    </section>
+
+    <section class="card">
+        <h2>Добавить сотрудника</h2>
+        <label>Организация
+            <select id="employeeOrg"></select>
+        </label>
+        <div style="margin-top:12px"><button type="button" onclick="addEmployee()">employeesCount + 1</button></div>
+    </section>
+
+    <section class="card wide">
+        <h2>Объединить две организации</h2>
+        <div class="fields">
+            <label>Первая организация <select id="mergeFirst"></select></label>
+            <label>Вторая организация <select id="mergeSecond"></select></label>
+            <label class="full">Имя новой организации <input id="mergeName"></label>
+            <label class="full">Адрес
+                <select id="mergeAddressMode" onchange="syncAddressMode()">
+                    <option value="existing">Использовать существующий Address</option>
+                    <option value="new">Создать новый Address</option>
+                </select>
+            </label>
+        </div>
+
+        <div id="existingAddressBlock" class="fields">
+            <label class="full">Existing Address <select id="mergeExistingAddress"></select></label>
+        </div>
+
+        <div id="newAddressBlock" class="fields hidden">
+            <label class="full">Zip code <input id="mergeZip"></label>
+            <label class="full">Town
+                <select id="mergeTownMode" onchange="syncTownMode()">
+                    <option value="existing">Использовать существующий Location</option>
+                    <option value="new">Создать новый Location</option>
+                </select>
+            </label>
+            <div id="existingTownBlock" class="full">
+                <label>Existing Location <select id="mergeExistingTown"></select></label>
+            </div>
+            <div id="newTownBlock" class="fields full hidden">
+                <label>Name <input id="mergeTownName"></label>
+                <label>X <input id="mergeTownX" type="number" step="any"></label>
+                <label>Y <input id="mergeTownY" type="number" step="any"></label>
+                <label>Z <input id="mergeTownZ" type="number" step="1"></label>
+            </div>
+        </div>
+        <button type="button" onclick="mergeOrganizations()">Объединить</button>
+    </section>
+</div>
+
+<h2>Результат</h2>
+<div id="message" class="success"></div>
+<div id="result"></div>
+
+<script>
+const specialApi = 'api/special-operations';
+const organizationsApi = 'api/organizations';
+const refApi = 'api/reference';
+const $ = id => document.getElementById(id);
+let organizations = [];
+let refs = {addresses:[], locations:[]};
+let pageLeaving = false;
+let organizationSocket = null;
+
+function beginPageLeave() {
+    if (pageLeaving) return;
+    pageLeaving = true;
+    if (organizationSocket) {
+        organizationSocket.onclose = null;
+        try { organizationSocket.close(); } catch (_) {}
+        organizationSocket = null;
+    }
+}
+
+function showError(targetId, error) {
+    if (pageLeaving || error?.name === 'AbortError') return;
+    $(targetId).textContent = error?.message || String(error);
+}
+
+document.querySelectorAll('nav a').forEach(link => link.addEventListener('click', beginPageLeave));
+window.addEventListener('pagehide', beginPageLeave);
+
+async function request(url, options={}) {
+    const headers = options.body ? {'Content-Type':'application/json'} : {};
+    const response = await fetch(url, {...options, headers:{...headers, ...(options.headers || {})}});
+    if (!response.ok) {
+        let body = null;
+        try { body = await response.json(); } catch (_) {}
+        const details = Array.isArray(body?.details) ? '\n' + body.details.join('\n') : '';
+        throw new Error((body?.error || `${response.status} ${response.statusText}`) + details);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+}
+
+async function loadAllOrganizations() {
+    const first = await request(`${organizationsApi}?page=0&size=100`);
+    let items = [...first.items];
+    const pages = Math.ceil(first.total / 100);
+    for (let page = 1; page < pages; page++) {
+        const next = await request(`${organizationsApi}?page=${page}&size=100`);
+        items.push(...next.items);
+    }
+    return items;
+}
+
+async function loadData() {
+    try {
+        [organizations, refs.addresses, refs.locations] = await Promise.all([
+            loadAllOrganizations(),
+            request(`${refApi}/addresses`),
+            request(`${refApi}/locations`)
+        ]);
+        fillSelect('mergeFirst', organizations, orgLabel);
+        fillSelect('mergeSecond', organizations, orgLabel);
+        fillSelect('employeeOrg', organizations, orgLabel);
+        fillSelect('mergeExistingAddress', refs.addresses, addressLabel);
+        fillSelect('mergeExistingTown', refs.locations, locationLabel);
+        if (organizations.length > 1) $('mergeSecond').selectedIndex = 1;
+        syncAddressMode();
+    } catch (e) {
+        showError('globalError', e);
+    }
+}
+
+function fillSelect(id, items, labelFn) {
+    const select = $(id);
+    select.innerHTML = items.length
+        ? items.map(item => `<option value="${item.id}">${escapeHtml(labelFn(item))}</option>`).join('')
+        : '<option value="">Нет объектов</option>';
+}
+
+function orgLabel(o) { return `#${o.id}: ${o.name} — employees=${o.employeesCount}, type=${o.type}`; }
+function addressLabel(a) { return `#${a.id}: ${a.zipCode} → ${a.town.name}`; }
+function locationLabel(l) { return `#${l.id}: ${l.name} (${l.x}, ${l.y}, ${l.z})`; }
+
+function syncAddressMode() {
+    const isNew = $('mergeAddressMode').value === 'new';
+    $('existingAddressBlock').classList.toggle('hidden', isNew);
+    $('newAddressBlock').classList.toggle('hidden', !isNew);
+    if (isNew) syncTownMode();
+}
+
+function syncTownMode() {
+    const isNew = $('mergeTownMode').value === 'new';
+    $('existingTownBlock').classList.toggle('hidden', isNew);
+    $('newTownBlock').classList.toggle('hidden', !isNew);
+}
+
+async function run(action) {
+    $('globalError').textContent = '';
+    $('message').textContent = '';
+    try {
+        const data = await action();
+        renderResult(Array.isArray(data) ? data : [data]);
+        return data;
+    } catch (e) {
+        showError('globalError', e);
+        throw e;
+    }
+}
+
+function minEmployees() {
+    return run(() => request(`${specialApi}/min-employees`)).catch(()=>{});
+}
+
+function nameStartsWith() {
+    const prefix = encodeURIComponent($('prefix').value);
+    return run(() => request(`${specialApi}/name-starts-with?prefix=${prefix}`)).catch(()=>{});
+}
+
+function typeGreaterThan() {
+    const type = encodeURIComponent($('typeValue').value);
+    return run(() => request(`${specialApi}/type-greater-than?type=${type}`)).catch(()=>{});
+}
+
+async function addEmployee() {
+    const id = Number($('employeeOrg').value);
+    if (!id) { $('globalError').textContent = 'Выберите организацию'; return; }
+    try {
+        const data = await run(() => request(`${specialApi}/${id}/add-employee`, {method:'POST'}));
+        $('message').textContent = `Для Organization #${id} добавлен один сотрудник.`;
+        await refreshOrganizations();
+        return data;
+    } catch (_) {}
+}
+
+function mergeAddressPayload() {
+    if ($('mergeAddressMode').value === 'existing') {
+        const id = Number($('mergeExistingAddress').value);
+        if (!id) throw new Error('Выберите Address');
+        return {id};
+    }
+    const zipCode = $('mergeZip').value;
+    let town;
+    if ($('mergeTownMode').value === 'existing') {
+        const id = Number($('mergeExistingTown').value);
+        if (!id) throw new Error('Выберите Location');
+        town = {id};
+    } else {
+        town = {
+            name: $('mergeTownName').value.trim(),
+            x: numberValue('mergeTownX'),
+            y: numberValue('mergeTownY'),
+            z: numberValue('mergeTownZ')
+        };
+    }
+    return {zipCode, town};
+}
+
+async function mergeOrganizations() {
+    $('globalError').textContent = '';
+    try {
+        const body = {
+            firstOrganizationId: Number($('mergeFirst').value),
+            secondOrganizationId: Number($('mergeSecond').value),
+            name: $('mergeName').value.trim(),
+            officialAddress: mergeAddressPayload()
+        };
+        const data = await run(() => request(`${specialApi}/merge`, {method:'POST', body:JSON.stringify(body)}));
+        $('message').textContent = `Создана объединённая организация #${data.id}.`;
+        await Promise.all([refreshOrganizations(), refreshReferences()]);
+    } catch (e) {
+        showError('globalError', e);
+    }
+}
+
+async function refreshOrganizations() {
+    organizations = await loadAllOrganizations();
+    const selectedEmployee = $('employeeOrg').value;
+    fillSelect('mergeFirst', organizations, orgLabel);
+    fillSelect('mergeSecond', organizations, orgLabel);
+    fillSelect('employeeOrg', organizations, orgLabel);
+    if ([...$('employeeOrg').options].some(o => o.value === selectedEmployee)) $('employeeOrg').value = selectedEmployee;
+}
+
+async function refreshReferences() {
+    [refs.addresses, refs.locations] = await Promise.all([
+        request(`${refApi}/addresses`), request(`${refApi}/locations`)
+    ]);
+    fillSelect('mergeExistingAddress', refs.addresses, addressLabel);
+    fillSelect('mergeExistingTown', refs.locations, locationLabel);
+}
+
+function renderResult(items) {
+    items = items.filter(Boolean);
+    if (!items.length) {
+        $('result').innerHTML = '<p class="muted">Результат пуст.</p>';
+        return;
+    }
+    $('result').innerHTML = `<table><thead><tr>
+        <th>ID</th><th>Name</th><th>Employees</th><th>Turnover</th><th>Rating</th><th>Type</th><th>Official address</th>
+        </tr></thead><tbody>${items.map(o => `<tr>
+        <td>${o.id}</td><td>${escapeHtml(o.name)}</td><td>${o.employeesCount}</td><td>${o.annualTurnover}</td>
+        <td>${o.rating}</td><td>${escapeHtml(o.type)}</td><td>${escapeHtml(addressLabel(o.officialAddress))}</td>
+        </tr>`).join('')}</tbody></table>`;
+}
+
+function numberValue(id) {
+    const value = $(id).value;
+    return value === '' ? null : Number(value);
+}
+function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+function connectWebSocket() {
+    if (pageLeaving) return;
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+    organizationSocket = new WebSocket(`${protocol}//${location.host}${base}ws/organizations`);
+    organizationSocket.onmessage = () => { if (!pageLeaving) loadData(); };
+    organizationSocket.onclose = () => {
+        organizationSocket = null;
+        if (!pageLeaving) setTimeout(connectWebSocket, 1500);
+    };
+}
+
+loadData();
+connectWebSocket();
+</script>
+</body>
+</html>

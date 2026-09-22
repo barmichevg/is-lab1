@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizations — ЛР1 v0.5.1</title>
+    <style>
+        :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#171717; }
+        body { max-width: 1450px; margin: 26px auto; padding: 0 16px 40px; }
+        h1 { margin-bottom: 4px; }
+        h2, h3, h4 { margin-bottom: 8px; }
+        nav { display:flex; gap:8px; margin:14px 0 18px; }
+        nav a { padding:8px 12px; border:1px solid #bbb; border-radius:6px; text-decoration:none; color:#171717; }
+        nav a.active { background:#171717; color:white; border-color:#171717; }
+        .toolbar { display:flex; gap:8px; margin:18px 0; flex-wrap:wrap; align-items:center; }
+        input, select, button { padding:8px 10px; font:inherit; }
+        button { cursor:pointer; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align:top; }
+        th { background:#f5f5f5; white-space:nowrap; }
+        dialog { width:min(920px, 96vw); max-height:90vh; overflow:auto; border:1px solid #555; }
+        form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        form h3, form h4, form .full { grid-column:1 / -1; }
+        label { display:flex; flex-direction:column; gap:5px; }
+        .section { grid-column:1 / -1; border:1px solid #ddd; border-radius:6px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .section h4, .section .full { grid-column:1 / -1; }
+        .hidden { display:none !important; }
+        .error { color:#b00020; white-space:pre-wrap; margin-top:8px; }
+        .field-error { color:#b00020; font-size:13px; line-height:1.25; min-height:16px; }
+        input.input-error, select.input-error { border-color:#b00020; outline-color:#b00020; }
+        .success { color:#087b35; }
+        .pagination { margin-top:12px; display:flex; gap:8px; align-items:center; }
+        .details { display:grid; grid-template-columns:180px 1fr; gap:8px 14px; }
+        .details dt { font-weight:600; }
+        .details dd { margin:0; }
+        @media (max-width: 800px) {
+            form, .section { grid-template-columns:1fr; }
+            form h3, form h4, form .full, .section h4, .section .full { grid-column:1; }
+            .details { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<h1>Organizations</h1>
+<nav><a href="index.html" class="active">Организации</a><a href="special.html">Специальные операции</a><a href="references.html">Справочники</a></nav>
+
+<div class="toolbar">
+    <select id="filterField">
+        <option value="name">Name</option>
+        <option value="type">Type</option>
+        <option value="officialZip">Official zip</option>
+        <option value="officialTown">Official town</option>
+        <option value="postalZip">Postal zip</option>
+        <option value="postalTown">Postal town</option>
+    </select>
+    <input id="filter" placeholder="Фильтр">
+    <select id="sortField">
+        <option value="id">ID</option>
+        <option value="name">Name</option>
+        <option value="type">Type</option>
+        <option value="officialZip">Official zip</option>
+        <option value="officialTown">Official town</option>
+        <option value="postalZip">Postal zip</option>
+        <option value="postalTown">Postal town</option>
+    </select>
+    <select id="sortDirection">
+        <option value="asc">↑</option>
+        <option value="desc">↓</option>
+    </select>
+    <button type="button" onclick="load(0)">Применить</button>
+    <button type="button" onclick="openCreate()">Создать организацию</button>
+</div>
+
+<div id="error" class="error"></div>
+<table>
+    <thead>
+    <tr>
+        <th>ID</th><th>Name</th><th>Coordinates</th><th>Official address</th><th>Postal address</th>
+        <th>Employees</th><th>Turnover</th><th>Rating</th><th>Type</th><th>Created</th><th>Actions</th>
+    </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+</table>
+<div class="pagination">
+    <button type="button" onclick="prevPage()">←</button>
+    <span id="pageInfo"></span>
+    <button type="button" onclick="nextPage()">→</button>
+</div>
+
+<dialog id="viewer">
+    <h2 id="viewTitle">Организация</h2>
+    <dl id="viewDetails" class="details"></dl>
+    <div style="margin-top:16px">
+        <button type="button" onclick="editViewedOrganization()">Изменить</button>
+        <button type="button" onclick="viewer.close()">Закрыть</button>
+    </div>
+</dialog>
+
+<dialog id="editor">
+    <h2 id="dialogTitle">Organization</h2>
+    <form id="form" novalidate>
+        <input id="editId" type="hidden">
+
+        <label>Name <input id="orgName" required></label>
+        <label>Type
+            <select id="orgType" required>
+                <option>COMMERCIAL</option>
+                <option>GOVERNMENT</option>
+                <option>PRIVATE_LIMITED_COMPANY</option>
+            </select>
+        </label>
+        <label>Annual turnover <input id="turnover" type="number" min="0.000001" step="any" required></label>
+        <label>Employees count <input id="employees" type="number" min="1" step="1" required></label>
+        <label>Rating <input id="rating" type="number" min="1" step="1" required></label>
+        <span></span>
+
+        <h3>Coordinates</h3>
+        <label class="full">Режим
+            <select id="coordMode" onchange="syncCoordinateMode()">
+                <option value="new">Создать новые Coordinates</option>
+                <option value="existing">Использовать существующие Coordinates</option>
+            </select>
+        </label>
+        <div id="coordExistingSection" class="section hidden">
+            <label class="full">Coordinates
+                <select id="coordExisting"></select>
+            </label>
+        </div>
+        <div id="coordNewSection" class="section">
+            <label>X <input id="coordX" type="number" step="1" required></label>
+            <label>Y <input id="coordY" type="number" step="1" required></label>
+        </div>
+
+        <h3>Official address</h3>
+        <label class="full">Режим
+            <select id="officialMode" onchange="syncOfficialMode()">
+                <option value="new">Создать новый Address</option>
+                <option value="existing">Использовать существующий Address</option>
+            </select>
+        </label>
+        <div id="officialExistingSection" class="section hidden">
+            <label class="full">Address
+                <select id="officialExisting"></select>
+            </label>
+        </div>
+        <div id="officialNewSection" class="section">
+            <label class="full">Zip code <input id="officialZip" required></label>
+            <h4>Town</h4>
+            <label class="full">Режим Town
+                <select id="officialTownMode" onchange="syncTownMode('official')">
+                    <option value="new">Создать новый Location</option>
+                    <option value="existing">Использовать существующий Location</option>
+                </select>
+            </label>
+            <div id="officialTownExistingSection" class="section hidden">
+                <label class="full">Location
+                    <select id="officialTownExisting"></select>
+                </label>
+            </div>
+            <div id="officialTownNewSection" class="section">
+                <label>Name <input id="officialTownName" required></label>
+                <label>X <input id="officialTownX" type="number" step="any" required></label>
+                <label>Y <input id="officialTownY" type="number" step="any" required></label>
+                <label>Z <input id="officialTownZ" type="number" step="1" required></label>
+            </div>
+        </div>
+
+        <h3>Postal address</h3>
+        <label class="full">Режим
+            <select id="postalMode" onchange="syncPostalMode()">
+                <option value="none">Нет postalAddress</option>
+                <option value="new">Создать новый Address</option>
+                <option value="existing">Использовать существующий Address</option>
+            </select>
+        </label>
+        <div id="postalExistingSection" class="section hidden">
+            <label class="full">Address
+                <select id="postalExisting"></select>
+            </label>
+        </div>
+        <div id="postalNewSection" class="section hidden">
+            <label class="full">Zip code <input id="postalZip"></label>
+            <h4>Town</h4>
+            <label class="full">Режим Town
+                <select id="postalTownMode" onchange="syncTownMode('postal')">
+                    <option value="new">Создать новый Location</option>
+                    <option value="existing">Использовать существующий Location</option>
+                </select>
+            </label>
+            <div id="postalTownExistingSection" class="section hidden">
+                <label class="full">Location
+                    <select id="postalTownExisting"></select>
+                </label>
+            </div>
+            <div id="postalTownNewSection" class="section">
+                <label>Name <input id="postalTownName"></label>
+                <label>X <input id="postalTownX" type="number" step="any"></label>
+                <label>Y <input id="postalTownY" type="number" step="any"></label>
+                <label>Z <input id="postalTownZ" type="number" step="1"></label>
+            </div>
+        </div>
+
+        <div class="full">
+            <button type="button" onclick="fillRandomData()">🎲 Случайные данные</button>
+            <button id="saveButton" type="submit">Сохранить</button>
+            <button type="button" onclick="editor.close()">Отмена</button>
+        </div>
+    </form>
+    <div id="dialogError" class="error"></div>
+</dialog>
+
+<script>
+const api = 'api/organizations';
+const refApi = 'api/reference';
+let currentPage = 0;
+let total = 0;
+const size = 10;
+let refs = {coordinates: [], addresses: [], locations: []};
+let viewedOrganizationId = null;
+let saveInProgress = false;
+let createRequestKey = null;
+let pageLeaving = false;
+let organizationSocket = null;
+const editor = document.getElementById('editor');
+const viewer = document.getElementById('viewer');
+const $ = id => document.getElementById(id);
+
+function beginPageLeave() {
+    if (pageLeaving) return;
+    pageLeaving = true;
+    if (organizationSocket) {
+        organizationSocket.onclose = null;
+        try { organizationSocket.close(); } catch (_) {}
+        organizationSocket = null;
+    }
+}
+
+function showError(targetId, error) {
+    if (pageLeaving || error?.name === 'AbortError') return;
+    $(targetId).textContent = error?.message || String(error);
+}
+
+document.querySelectorAll('nav a').forEach(link => link.addEventListener('click', beginPageLeave));
+window.addEventListener('pagehide', beginPageLeave);
+
+async function request(url, options={}) {
+    const headers = options.body ? {'Content-Type':'application/json'} : {};
+    const r = await fetch(url, {...options, headers:{...headers, ...(options.headers || {})}});
+    if (!r.ok) {
+        let body = null;
+        try { body = await r.json(); } catch (_) {}
+        const details = Array.isArray(body?.details) && body.details.length ? `\n${body.details.join('\n')}` : '';
+        throw new Error((body?.error || `${r.status} ${r.statusText}`) + details);
+    }
+    return r.status === 204 ? null : r.json();
+}
+
+async function load(page=currentPage) {
+    try {
+        $('error').textContent = '';
+        currentPage = Math.max(0, page);
+        const filterField = encodeURIComponent($('filterField').value);
+        const filterValue = encodeURIComponent($('filter').value.trim());
+        const sort = encodeURIComponent($('sortField').value);
+        const direction = encodeURIComponent($('sortDirection').value);
+        const data = await request(`${api}?page=${currentPage}&size=${size}&filterField=${filterField}&filterValue=${filterValue}&sort=${sort}&direction=${direction}`);
+        total = data.total;
+        $('rows').innerHTML = data.items.map(o => `
+            <tr>
+                <td>${o.id}</td>
+                <td>${escapeHtml(o.name)}</td>
+                <td>#${o.coordinates.id} (${o.coordinates.x}, ${o.coordinates.y})</td>
+                <td>${formatAddress(o.officialAddress)}</td>
+                <td>${o.postalAddress ? formatAddress(o.postalAddress) : '—'}</td>
+                <td>${o.employeesCount}</td>
+                <td>${o.annualTurnover}</td>
+                <td>${o.rating}</td>
+                <td>${o.type}</td>
+                <td>${o.creationDate ?? ''}</td>
+                <td>
+                    <button type="button" onclick="viewOrg(${o.id})">Просмотр</button>
+                    <button type="button" onclick="edit(${o.id})">Изменить</button>
+                    <button type="button" onclick="removeOrg(${o.id})">Удалить</button>
+                </td>
+            </tr>`).join('');
+        $('pageInfo').textContent = `Страница ${currentPage + 1}; всего: ${total}`;
+    } catch (e) {
+        showError('error', e);
+    }
+}
+
+function prevPage(){ if(currentPage > 0) load(currentPage-1); }
+function nextPage(){ if((currentPage+1)*size < total) load(currentPage+1); }
+
+async function loadReferences(showMessage=false) {
+    const [coordinates, addresses, locations] = await Promise.all([
+        request(`${refApi}/coordinates`),
+        request(`${refApi}/addresses`),
+        request(`${refApi}/locations`)
+    ]);
+    refs = {coordinates, addresses, locations};
+    refillReferenceSelects();
+    if (showMessage) $('error').textContent = 'Справочники обновлены.';
+}
+
+function refillReferenceSelects() {
+    fillSelect('coordExisting', refs.coordinates, c => `#${c.id}: (${c.x}, ${c.y})`);
+    fillSelect('officialExisting', refs.addresses, addressLabel);
+    fillSelect('postalExisting', refs.addresses, addressLabel);
+    fillSelect('officialTownExisting', refs.locations, locationLabel);
+    fillSelect('postalTownExisting', refs.locations, locationLabel);
+
+    $('coordMode').querySelector('option[value="existing"]').disabled = refs.coordinates.length === 0;
+    $('officialMode').querySelector('option[value="existing"]').disabled = refs.addresses.length === 0;
+    $('postalMode').querySelector('option[value="existing"]').disabled = refs.addresses.length === 0;
+    $('officialTownMode').querySelector('option[value="existing"]').disabled = refs.locations.length === 0;
+    $('postalTownMode').querySelector('option[value="existing"]').disabled = refs.locations.length === 0;
+}
+
+function fillSelect(id, items, labelFn) {
+    const select = $(id);
+    const selected = select.value;
+    select.innerHTML = '';
+    if (items.length === 0) {
+        const option = new Option('Нет существующих объектов', '');
+        select.add(option);
+        select.disabled = true;
+        return;
+    }
+    select.disabled = false;
+    for (const item of items) select.add(new Option(labelFn(item), String(item.id)));
+    if (items.some(x => String(x.id) === selected)) select.value = selected;
+}
+
+async function openCreate(){
+    try {
+        await loadReferences();
+        createRequestKey = newCreateRequestKey();
+        $('form').reset();
+        $('editId').value = '';
+        $('dialogTitle').textContent = 'Создание организации';
+        $('dialogError').textContent = '';
+        clearValidationErrors();
+        $('coordMode').value = 'new';
+        $('officialMode').value = 'new';
+        $('officialTownMode').value = 'new';
+        $('postalMode').value = 'none';
+        $('postalTownMode').value = 'new';
+        syncAllModes();
+        editor.showModal();
+    } catch(e) {
+        showError('error', e);
+    }
+}
+
+async function viewOrg(id) {
+    try {
+        const o = await request(`${api}/${id}`);
+        viewedOrganizationId = o.id;
+        $('viewTitle').textContent = `Организация #${o.id}`;
+        const entries = [
+            ['Name', o.name],
+            ['Type', o.type],
+            ['Creation date', o.creationDate],
+            ['Annual turnover', o.annualTurnover],
+            ['Employees count', o.employeesCount],
+            ['Rating', o.rating],
+            ['Coordinates', `#${o.coordinates.id}: (${o.coordinates.x}, ${o.coordinates.y})`],
+            ['Official address', plainAddress(o.officialAddress)],
+            ['Postal address', o.postalAddress ? plainAddress(o.postalAddress) : '—']
+        ];
+        $('viewDetails').innerHTML = entries.map(([k,v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
+        viewer.showModal();
+    } catch(e) {
+        showError('error', e);
+    }
+}
+
+async function editViewedOrganization() {
+    if (viewedOrganizationId == null) return;
+    const id = viewedOrganizationId;
+    viewer.close();
+    await edit(id);
+}
+
+async function edit(id){
+    try {
+        createRequestKey = null;
+        const [o] = await Promise.all([request(`${api}/${id}`), loadReferences()]);
+        $('form').reset();
+        $('editId').value = o.id;
+        $('orgName').value = o.name;
+        $('orgType').value = o.type;
+        $('turnover').value = o.annualTurnover;
+        $('employees').value = o.employeesCount;
+        $('rating').value = o.rating;
+
+        $('coordMode').value = 'existing';
+        $('coordExisting').value = String(o.coordinates.id);
+        $('coordX').value = o.coordinates.x;
+        $('coordY').value = o.coordinates.y;
+
+        $('officialMode').value = 'existing';
+        $('officialExisting').value = String(o.officialAddress.id);
+        prefillAddress('official', o.officialAddress);
+
+        if (o.postalAddress) {
+            $('postalMode').value = 'existing';
+            $('postalExisting').value = String(o.postalAddress.id);
+            prefillAddress('postal', o.postalAddress);
+        } else {
+            $('postalMode').value = 'none';
+        }
+
+        $('dialogTitle').textContent = `Изменение организации #${id}`;
+        $('dialogError').textContent = '';
+        clearValidationErrors();
+        syncAllModes();
+        editor.showModal();
+    } catch(e) {
+        showError('error', e);
+    }
+}
+
+function prefillAddress(prefix, address) {
+    $(`${prefix}Zip`).value = address.zipCode;
+    $(`${prefix}TownMode`).value = 'existing';
+    $(`${prefix}TownExisting`).value = String(address.town.id);
+    $(`${prefix}TownName`).value = address.town.name;
+    $(`${prefix}TownX`).value = address.town.x;
+    $(`${prefix}TownY`).value = address.town.y;
+    $(`${prefix}TownZ`).value = address.town.z;
+}
+
+function syncAllModes() {
+    syncCoordinateMode();
+    syncOfficialMode();
+    syncPostalMode();
+}
+
+function setSection(id, visible) {
+    const section = $(id);
+    section.classList.toggle('hidden', !visible);
+    section.querySelectorAll('input, select').forEach(el => el.disabled = !visible);
+}
+
+function syncCoordinateMode() {
+    const existing = $('coordMode').value === 'existing';
+    setSection('coordExistingSection', existing);
+    setSection('coordNewSection', !existing);
+}
+
+function syncOfficialMode() {
+    const existing = $('officialMode').value === 'existing';
+    setSection('officialExistingSection', existing);
+    setSection('officialNewSection', !existing);
+    if (!existing) syncTownMode('official');
+}
+
+function syncPostalMode() {
+    const mode = $('postalMode').value;
+    setSection('postalExistingSection', mode === 'existing');
+    setSection('postalNewSection', mode === 'new');
+    if (mode === 'new') syncTownMode('postal');
+}
+
+function syncTownMode(prefix) {
+    const existing = $(`${prefix}TownMode`).value === 'existing';
+    setSection(`${prefix}TownExistingSection`, existing);
+    setSection(`${prefix}TownNewSection`, !existing);
+    setRequired(`${prefix}TownName`, !existing);
+    setRequired(`${prefix}TownX`, !existing);
+    setRequired(`${prefix}TownY`, !existing);
+    setRequired(`${prefix}TownZ`, !existing);
+    setRequired(`${prefix}Zip`, true);
+}
+
+function setRequired(id, required) {
+    const el = $(id);
+    if (el) el.required = required && !el.disabled;
+}
+
+function coordinatesPayload() {
+    if ($('coordMode').value === 'existing') {
+        return {id: requiredSelectedId('coordExisting', 'Coordinates')};
+    }
+    return {x: numberValue('coordX'), y: numberValue('coordY')};
+}
+
+function addressPayload(prefix, mode) {
+    if (mode === 'existing') {
+        return {id: requiredSelectedId(`${prefix}Existing`, 'Address')};
+    }
+    if (mode === 'none') return null;
+
+    const townMode = $(`${prefix}TownMode`).value;
+    const town = townMode === 'existing'
+        ? {id: requiredSelectedId(`${prefix}TownExisting`, 'Location')}
+        : {
+            x: numberValue(`${prefix}TownX`),
+            y: numberValue(`${prefix}TownY`),
+            z: numberValue(`${prefix}TownZ`),
+            name: $(`${prefix}TownName`).value.trim()
+        };
+
+    return {
+        zipCode: $(`${prefix}Zip`).value,
+        town
+    };
+}
+
+function clearFieldError(id) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.remove('input-error');
+    const node = document.querySelector(`[data-error-for="${id}"]`);
+    if (node) node.textContent = '';
+}
+
+function setFieldError(id, message) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.add('input-error');
+    let node = document.querySelector(`[data-error-for="${id}"]`);
+    if (!node) {
+        node = document.createElement('div');
+        node.className = 'field-error';
+        node.dataset.errorFor = id;
+        const label = el.closest('label');
+        if (label) label.appendChild(node);
+        else el.insertAdjacentElement('afterend', node);
+    }
+    node.textContent = message;
+}
+
+function clearValidationErrors() {
+    document.querySelectorAll('.field-error').forEach(node => node.textContent = '');
+    document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+}
+
+function validateRequiredText(id, emptyMessage = 'Строка не может быть пустой.') {
+    const value = $(id).value.trim();
+    if (!value) {
+        setFieldError(id, emptyMessage);
+        return false;
+    }
+    return true;
+}
+
+function validateNumber(id, {
+    integer = false,
+    positive = false,
+    required = true,
+    int32 = false,
+    expectedMessage = null
+} = {}) {
+    const input = $(id);
+    const raw = input.value.trim();
+
+    // For <input type="number"> browsers may expose an invalid textual value
+    // (for example letters) as an empty .value. validity.badInput lets us
+    // distinguish that case from a genuinely empty field.
+    if (input.validity && input.validity.badInput) {
+        setFieldError(id, expectedMessage || 'Введите корректное число.');
+        return false;
+    }
+
+    if (!raw) {
+        if (required) {
+            setFieldError(id, expectedMessage || 'Поле не может быть пустым.');
+        }
+        return !required;
+    }
+
+    const value = Number(raw);
+    if (!Number.isFinite(value)) {
+        setFieldError(id, expectedMessage || 'Введите корректное число.');
+        return false;
+    }
+    if (integer && !Number.isInteger(value)) {
+        setFieldError(id, expectedMessage || 'Значение должно быть целым числом.');
+        return false;
+    }
+    if (int32 && (value < -2147483648 || value > 2147483647)) {
+        setFieldError(id, expectedMessage || 'Значение должно помещаться в диапазон int.');
+        return false;
+    }
+    if (positive && value <= 0) {
+        setFieldError(id, expectedMessage || 'Значение должно быть больше 0.');
+        return false;
+    }
+    return true;
+}
+
+function validateExistingSelection(id) {
+    if (!$(id).value) {
+        setFieldError(id, 'Выберите существующий объект.');
+        return false;
+    }
+    return true;
+}
+
+function validateAddressFields(prefix, mode) {
+    if (mode === 'none') return true;
+    if (mode === 'existing') return validateExistingSelection(`${prefix}Existing`);
+
+    let valid = true;
+    const townMode = $(`${prefix}TownMode`).value;
+    if (townMode === 'existing') {
+        valid = validateExistingSelection(`${prefix}TownExisting`) && valid;
+    } else {
+        valid = validateRequiredText(`${prefix}TownName`) && valid;
+        valid = validateNumber(`${prefix}TownX`, {
+            expectedMessage: 'Введите число (Double).'
+        }) && valid;
+        valid = validateNumber(`${prefix}TownY`, {
+            expectedMessage: 'Введите число (Double).'
+        }) && valid;
+        valid = validateNumber(`${prefix}TownZ`, {
+            integer:true,
+            int32:true,
+            expectedMessage: 'Введите целое число (int).'
+        }) && valid;
+    }
+    return valid;
+}
+
+function validateOrganizationForm() {
+    clearValidationErrors();
+    let valid = true;
+
+    valid = validateRequiredText('orgName') && valid;
+    valid = validateNumber('turnover', {
+        positive:true,
+        expectedMessage: 'Введите число (float) больше 0.'
+    }) && valid;
+    valid = validateNumber('employees', {
+        integer:true,
+        positive:true,
+        expectedMessage: 'Введите целое число (long) больше 0.'
+    }) && valid;
+    valid = validateNumber('rating', {
+        integer:true,
+        positive:true,
+        int32:true,
+        expectedMessage: 'Введите целое число (int) больше 0.'
+    }) && valid;
+
+    if ($('coordMode').value === 'existing') {
+        valid = validateExistingSelection('coordExisting') && valid;
+    } else {
+        valid = validateNumber('coordX', {
+            integer:true,
+            int32:true,
+            expectedMessage: 'Введите целое число (int).'
+        }) && valid;
+        valid = validateNumber('coordY', {
+            integer:true,
+            int32:true,
+            expectedMessage: 'Введите целое число (int).'
+        }) && valid;
+    }
+
+    valid = validateAddressFields('official', $('officialMode').value) && valid;
+    valid = validateAddressFields('postal', $('postalMode').value) && valid;
+
+    if (!valid) {
+        const first = document.querySelector('.input-error');
+        if (first) first.focus();
+    }
+    return valid;
+}
+
+function payload(){
+    return {
+        name: $('orgName').value.trim(),
+        coordinates: coordinatesPayload(),
+        officialAddress: addressPayload('official', $('officialMode').value),
+        annualTurnover: numberValue('turnover'),
+        employeesCount: numberValue('employees'),
+        rating: numberValue('rating'),
+        type: $('orgType').value,
+        postalAddress: addressPayload('postal', $('postalMode').value)
+    };
+}
+
+function newCreateRequestKey() {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function save(e){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (saveInProgress) return;
+
+    $('dialogError').textContent = '';
+    if (!validateOrganizationForm()) return;
+
+    saveInProgress = true;
+    const saveButton = $('saveButton');
+    saveButton.disabled = true;
+    const previousText = saveButton.textContent;
+    saveButton.textContent = 'Сохранение…';
+
+    try {
+        const id = $('editId').value;
+        const isCreate = !id;
+        if (isCreate && !createRequestKey) createRequestKey = newCreateRequestKey();
+
+        await request(isCreate ? api : `${api}/${id}`, {
+            method:isCreate ? 'POST' : 'PUT',
+            body:JSON.stringify(payload()),
+            headers:isCreate ? {'X-Idempotency-Key': createRequestKey} : {}
+        });
+
+        if (isCreate) createRequestKey = null;
+        editor.close();
+        await Promise.all([load(currentPage), loadReferences()]);
+    } catch(e) {
+        showError('dialogError', e);
+    } finally {
+        saveInProgress = false;
+        saveButton.disabled = false;
+        saveButton.textContent = previousText;
+    }
+}
+
+async function removeOrg(id){
+    try {
+        await request(`${api}/${id}`, {method:'DELETE'});
+        await load(currentPage);
+    } catch(e) {
+        showError('error', e);
+    }
+}
+
+
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomFloat(min, max, digits = 2) {
+    return Number((Math.random() * (max - min) + min).toFixed(digits));
+}
+
+function randomItem(items) {
+    return items[randomInt(0, items.length - 1)];
+}
+
+function randomToken(length = 6) {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < length; i++) result += alphabet[randomInt(0, alphabet.length - 1)];
+    return result;
+}
+
+function fillRandomData() {
+    $('orgName').value = `${randomItem(['Orion', 'Nova', 'Vertex', 'Atlas', 'Nimbus', 'Quantum', 'Aurora', 'Vector'])}-${randomToken(4)}`;
+    $('orgType').value = randomItem(['COMMERCIAL', 'GOVERNMENT', 'PRIVATE_LIMITED_COMPANY']);
+    $('turnover').value = randomFloat(1, 10_000_000, 2);
+    $('employees').value = randomInt(1, 50_000);
+    $('rating').value = randomInt(1, 100);
+
+    $('coordMode').value = 'new';
+    $('coordX').value = randomInt(-10_000, 10_000);
+    $('coordY').value = randomInt(-10_000, 10_000);
+
+    $('officialMode').value = 'new';
+    $('officialZip').value = String(randomInt(100000, 999999));
+    $('officialTownMode').value = 'new';
+    $('officialTownName').value = `${randomItem(['North', 'South', 'East', 'West', 'Central', 'Lake', 'Hill', 'River'])}-${randomToken(3)}`;
+    $('officialTownX').value = randomFloat(-1000, 1000, 3);
+    $('officialTownY').value = randomFloat(-1000, 1000, 3);
+    $('officialTownZ').value = randomInt(-10_000, 10_000);
+
+    $('postalMode').value = 'new';
+    $('postalZip').value = String(randomInt(100000, 999999));
+    $('postalTownMode').value = 'new';
+    $('postalTownName').value = `${randomItem(['Pine', 'Oak', 'Stone', 'Green', 'Silver', 'Golden', 'Red', 'Blue'])}-${randomToken(3)}`;
+    $('postalTownX').value = randomFloat(-1000, 1000, 3);
+    $('postalTownY').value = randomFloat(-1000, 1000, 3);
+    $('postalTownZ').value = randomInt(-10_000, 10_000);
+
+    syncAllModes();
+    $('dialogError').textContent = '';
+    clearValidationErrors();
+}
+
+function requiredSelectedId(id, label) {
+    const value = $(id).value;
+    if (!value) throw new Error(`${label}: выберите существующий объект`);
+    return Number(value);
+}
+
+function numberValue(id) {
+    const value = $(id).value;
+    return value === '' ? null : Number(value);
+}
+
+function addressLabel(a) {
+    return `#${a.id}: ${a.zipCode} → ${a.town.name} (#${a.town.id})`;
+}
+
+function locationLabel(l) {
+    return `#${l.id}: ${l.name} (${l.x}, ${l.y}, ${l.z})`;
+}
+
+function plainAddress(a) {
+    return `#${a.id}: ${a.zipCode}; ${a.town.name} (#${a.town.id}, ${a.town.x}, ${a.town.y}, ${a.town.z})`;
+}
+
+function formatAddress(a) {
+    return escapeHtml(plainAddress(a));
+}
+
+function escapeHtml(v){
+    return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
+function connectWebSocket() {
+    if (pageLeaving) return;
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+    organizationSocket = new WebSocket(`${protocol}//${location.host}${base}ws/organizations`);
+    organizationSocket.onmessage = async () => {
+        if (pageLeaving) return;
+        try {
+            await Promise.all([load(currentPage), loadReferences()]);
+        } catch (e) {
+            showError('error', e);
+        }
+    };
+    organizationSocket.onclose = () => {
+        organizationSocket = null;
+        if (!pageLeaving) setTimeout(connectWebSocket, 1500);
+    };
+}
+
+$('form').addEventListener('submit', save);
+
+$('form').querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', () => clearFieldError(el.id));
+    el.addEventListener('change', () => clearFieldError(el.id));
+});
+
+loadReferences().catch(e => showError('error', e));
+load();
+connectWebSocket();
+</script>
+</body>
+</html>

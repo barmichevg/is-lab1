@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: information_systems
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d information_systems"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  payara:
+    image: payara/server-full:6.2025.11-jdk17
+    environment:
+      DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/information_systems}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "8080:8080"
+      - "4848:4848"
+    volumes:
+      - ./target/is-lab1.war:/opt/payara/deployments/is-lab1.war:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

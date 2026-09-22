@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence" version="3.1">
+    <persistence-unit name="lab1PU" transaction-type="JTA">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+        <jta-data-source>java:app/jdbc/Lab1DS</jta-data-source>
+        <class>ru.itmo.is.model.Organization</class>
+        <class>ru.itmo.is.model.Coordinates</class>
+        <class>ru.itmo.is.model.Address</class>
+        <class>ru.itmo.is.model.Location</class>
+        <properties>
+            <property name="eclipselink.target-database" value="PostgreSQL"/>
+            <property name="eclipselink.logging.level" value="INFO"/>
+        </properties>
+    </persistence-unit>
+</persistence>
