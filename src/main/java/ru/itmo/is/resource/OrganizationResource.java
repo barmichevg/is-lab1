@@ -57,7 +57,6 @@ public class OrganizationResource {
         return pageService.page(page, size, filterField, filterValue, sort, direction);
     }
 
-    /** Static path wins over /{id}; protected by the same /api/* session filter. */
     @GET
     @Path("/options")
     public List<OrganizationOptionDto> options() {

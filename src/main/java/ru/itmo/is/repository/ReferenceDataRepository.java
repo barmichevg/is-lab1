@@ -89,8 +89,7 @@ public class ReferenceDataRepository {
     }
 
     public void replaceAddress(Address source, Address replacement) {
-        // Change both roles and invalidate each row exactly once. Native SQL avoids
-        // EclipseLink adding its own version increments to separate JPQL updates.
+
         em.createNativeQuery("""
                 UPDATE organizations
                 SET official_address_id = CASE WHEN official_address_id = ?1 THEN ?2 ELSE official_address_id END,
@@ -104,11 +103,7 @@ public class ReferenceDataRepository {
     }
 
     public void replaceLocation(Location source, Location replacement) {
-        // ReferenceDataService holds the exclusive transaction mutation lock BEFORE
-        // loading source/replacement. No create/update/merge can enter between these
-        // statements; writers committed earlier are included in this version bump.
-        // The Organization row's own fields did not change, but its DTO contains town.
-        // Bump before changing Address.town, while the source predicate matches.
+
         em.createQuery("""
                 update Organization o set o.version = o.version + 1
                 where o.officialAddress in (select a from Address a where a.town = :source)

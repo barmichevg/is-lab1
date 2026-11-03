@@ -10,7 +10,7 @@ import java.net.URI;
 public class AuthFilter implements Filter {
     public static boolean sameOrigin(HttpServletRequest request) {
         String origin=request.getHeader("Origin");
-        if(origin==null) return true; // CLI clients authenticate using the session and CSRF token.
+        if(origin==null) return true;
         try {
             URI uri=URI.create(origin);
             int port=uri.getPort()<0 ? ("https".equals(uri.getScheme())?443:80) : uri.getPort();

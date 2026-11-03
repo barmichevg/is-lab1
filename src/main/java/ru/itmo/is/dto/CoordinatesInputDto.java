@@ -1,10 +1,5 @@
 package ru.itmo.is.dto;
 
-/**
- * Reference-or-create DTO.
- * If id is specified, the existing Coordinates entity is used and x/y are ignored.
- * If id is null, x and y are required and a new Coordinates entity is created.
- */
 public class CoordinatesInputDto {
     private Integer id;
     private Integer x;

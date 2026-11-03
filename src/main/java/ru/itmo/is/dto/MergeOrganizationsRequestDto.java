@@ -1,6 +1,5 @@
 package ru.itmo.is.dto;
 
-/** Request for the database-level organization merge operation. */
 public class MergeOrganizationsRequestDto {
     private Integer firstOrganizationId;
     private Integer secondOrganizationId;

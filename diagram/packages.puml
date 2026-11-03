@@ -35,6 +35,7 @@
    class OrganizationUpsertDto
    class OrganizationResponseDto
    class OrganizationPageDto
+   class OrganizationOptionDto
    class OrganizationResponseCodec
    class MergeOrganizationsRequestDto
  }

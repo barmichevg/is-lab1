@@ -8,7 +8,6 @@ import ru.itmo.is.model.OrganizationType;
 import java.io.StringReader;
 import java.time.LocalDateTime;
 
-/** Versioned, explicit durable response format. Long counters never pass through double. */
 public final class OrganizationResponseCodec {
     private OrganizationResponseCodec() {}
 

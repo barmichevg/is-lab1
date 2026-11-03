@@ -90,7 +90,7 @@ public class OrganizationService {
         if (existing.getVersion() != input.getVersion()) {
             throw new OptimisticLockException("Organization version is stale");
         }
-        // Also validate unchanged PUTs; dirty writes are protected by @Version at flush.
+
         organizationRepository.checkVersion(existing);
         applySimpleFields(existing, input);
         existing.setCoordinates(resolveCoordinates(input.getCoordinates()));

@@ -2,7 +2,6 @@ package ru.itmo.is.dto;
 
 import java.util.List;
 
-/** Materialized inside the page transaction; no JPA entities escape into JSON serialization. */
 public class OrganizationPageDto {
     private final List<OrganizationResponseDto> items;
     private final long total;

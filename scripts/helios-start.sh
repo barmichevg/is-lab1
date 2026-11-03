@@ -1,5 +1,4 @@
 #!/bin/sh
-# Run on Helios after copying this file, schema.sql, the WAR and runtime JARs.
 set -eu
 umask 077
 
@@ -35,7 +34,6 @@ case "$DB_SCHEMA" in [a-z_]*) ;; *) fail 'DB_SCHEMA must start with a lowercase 
 case "$HTTP_PORT" in ''|*[!0-9]*) fail 'HTTP_PORT must be an integer.' ;; esac
 [ "$HTTP_PORT" -ge 1024 ] && [ "$HTTP_PORT" -le 65535 ] || fail 'HTTP_PORT must be between 1024 and 65535.'
 
-# BSD stat on Helios, GNU stat on Linux. Do not print the password file.
 [ -f "$PGPASSFILE" ] && [ -r "$PGPASSFILE" ] || fail 'Cannot read the configured .pgpass file.'
 if PGPASS_META=$(stat -Lf '%u %Lp' "$PGPASSFILE" 2>/dev/null); then
     :
@@ -48,8 +46,6 @@ PGPASS_MODE=${PGPASS_META#* }
 case "$PGPASS_MODE" in ''|*[!0-7]*) fail 'Cannot check .pgpass permissions.' ;; esac
 [ "$((0$PGPASS_MODE & 077))" -eq 0 ] || fail 'The .pgpass file needs permissions 0600: chmod 600 ~/.pgpass.'
 
-# POSIX awk, available in FreeBSD base: preserve escaped colons/backslashes and
-# first-match semantics. Capture only into the child environment, never logs/argv.
 DB_PASSWORD=$(LC_ALL=C awk -v host="$DB_HOST" -v port="$DB_PORT" -v db="$DB_NAME" -v user="$DB_USER" '
     function matches(value, wanted) { return value == "*" || value == wanted }
     /^#/ { next }
@@ -78,7 +74,6 @@ DB_PASSWORD=$(LC_ALL=C awk -v host="$DB_HOST" -v port="$DB_PORT" -v db="$DB_NAME
         }
     }
 ' < "$PGPASSFILE")
-# Make libpq use the same file instead of an unrelated inherited password.
 unset PGPASSWORD
 export DB_HOST DB_PORT DB_NAME DB_USER DB_SCHEMA DB_PASSWORD PGPASSFILE AUTH_USERS_FILE
 DB_URL="jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME?currentSchema=$DB_SCHEMA"
@@ -101,9 +96,6 @@ ORDER BY nspname;
 SQL
 }
 
-# CREATE SCHEMA IF NOT EXISTS still checks CREATE on the database, even when
-# the schema already exists. Do not require that right for an existing schema.
-# Never silently switch to public or another student's schema.
 printf 'Preparing database %s/%s, schema %s for %s\n' "$DB_HOST" "$DB_NAME" "$DB_SCHEMA" "$DB_USER"
 SCHEMA_STATUS=$(db_psql -At -v app_schema="$DB_SCHEMA" <<'SQL'
 SELECT COALESCE((
@@ -144,7 +136,6 @@ printf '%s\n' \
     'set configs.config.server-config.network-config.network-listeners.network-listener.http-listener.address=127.0.0.1' \
     > "$APP_DIR/helios-preboot.txt"
 printf 'Starting HTTP on 127.0.0.1:%s; context /is-lab1\n' "$HTTP_PORT"
-# Do not add --nocluster: in Micro 6.2025.11 that branch overrides --nohazelcast.
 exec "$JAVA_BIN" -Xms128m -Xmx512m -jar "$APP_DIR/payara-micro.jar" \
     --nohazelcast --disablephonehome \
     --port "$HTTP_PORT" --contextroot /is-lab1 \

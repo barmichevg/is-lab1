@@ -16,8 +16,6 @@ services:
       timeout: 3s
       retries: 10
 
-  # Only this short-lived initializer runs as root. The application stays UID 1000.
-  # Keep the bind mount so existing accounts survive the upgrade unchanged.
   accounts-init:
     image: payara/server-full:6.2025.11-jdk17
     user: "0:0"
@@ -70,8 +68,6 @@ services:
       start_period: 30s
       retries: 12
 
-# Avoid the 172.18.0.0 range used by some VPN TUN adapters.
-# Override when this subnet is already used on another machine.
 networks:
   default:
     ipam:

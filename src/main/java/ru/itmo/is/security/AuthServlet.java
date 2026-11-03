@@ -31,7 +31,7 @@ public class AuthServlet extends HttpServlet {
         if("/logout".equals(r.getPathInfo())) { r.getSession().invalidate(); s.setStatus(204); return; }
         boolean register = "/register".equals(r.getPathInfo());
         if(!register && !"/login".equals(r.getPathInfo())) { AuthFilter.fail(s,404,"Not found"); return; }
-        // Bound even malformed/oversized floods before reading the request body.
+
         var peer=rateLimiter.allowPeer(r.getRemoteAddr());
         if(!peer.allowed()) {
             s.setHeader("Retry-After",Long.toString(peer.retryAfterSeconds()));
@@ -46,8 +46,7 @@ public class AuthServlet extends HttpServlet {
             String user=RequestParser.string(j,"username","username");
             if (!LoginRateLimiter.validUsername(user)) { AuthFilter.fail(s,400,"Invalid username"); return; }
             if (!(j.get("password") instanceof jakarta.json.JsonString value)) { AuthFilter.fail(s,400,"Password must be a string"); return; }
-            // Validate the bounded body/username before allocating per-user buckets.
-            // Do not trust X-Forwarded-For: only the actual Servlet peer address counts.
+
             var decision=rateLimiter.allowUsername(register ? LoginRateLimiter.Operation.REGISTER : LoginRateLimiter.Operation.LOGIN,
                     user);
             if(!decision.allowed()) {

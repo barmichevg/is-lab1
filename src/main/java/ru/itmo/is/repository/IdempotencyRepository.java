@@ -5,7 +5,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 
-/** The unique row, not a JVM monitor, arbitrates concurrent retries of ONE key. */
 @ApplicationScoped
 @Transactional(Transactional.TxType.MANDATORY)
 public class IdempotencyRepository {

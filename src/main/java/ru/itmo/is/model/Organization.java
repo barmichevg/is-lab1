@@ -11,7 +11,7 @@ import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "organizations")
-@Cacheable(false) // Native operations also mutate organizations; always read the committed row.
+@Cacheable(false)
 public class Organization {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -69,9 +69,7 @@ public class Organization {
 
     @PrePersist
     public void prePersist() {
-        // PostgreSQL TIMESTAMP stores microseconds. Normalize before INSERT so
-        // the creation response and subsequent GET expose the same value, including
-        // when another server component supplied a date before persistence.
+
         creationDate = (creationDate == null ? LocalDateTime.now() : creationDate)
                 .truncatedTo(ChronoUnit.MICROS);
     }

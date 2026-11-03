@@ -44,22 +44,12 @@ public class OrganizationRepository {
     @PersistenceContext(unitName = "lab1PU")
     EntityManager em;
 
-    /**
-     * Must be the FIRST database statement in a new page transaction. PostgreSQL
-     * keeps one snapshot for count, items and any nested DTO loads, without row or
-     * mutation locks. SET TRANSACTION is local to this transaction (not the pool).
-     */
     @jakarta.transaction.Transactional(jakarta.transaction.Transactional.TxType.MANDATORY)
     public void beginPageSnapshot() {
         em.createNativeQuery("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
                 .executeUpdate();
     }
 
-    /**
-     * A single ordered scalar SELECT for every dropdown option. Never compose this
-     * from offset pages: concurrent deletes between HTTP requests can skip live IDs.
-     * Constructor projection avoids hydrating full Organization/Address/Location graphs.
-     */
     @jakarta.transaction.Transactional(jakarta.transaction.Transactional.TxType.MANDATORY)
     public List<OrganizationOptionDto> findOptions() {
         return em.createQuery("select new ru.itmo.is.dto.OrganizationOptionDto(o.id, o.name, o.employeesCount) "

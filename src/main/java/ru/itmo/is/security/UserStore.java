@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Properties;
 
-/** Small persistent account store for one Payara process. */
 public final class UserStore {
     private final Path path;
     private final Properties users = new Properties();

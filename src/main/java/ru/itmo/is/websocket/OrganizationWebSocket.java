@@ -24,9 +24,7 @@ public class OrganizationWebSocket {
             client = new Client(session, token);
             CLIENTS.put(session, client);
             Client opening = client;
-            // Publish the pending client BEFORE subscribing. Revoke can close it
-            // even between successful subscription and assignment below; bind then
-            // cancels that subscription instead of resurrecting a closed client.
+
             AuthSessions.Subscription subscription = AuthSessions.subscribe(token, () -> closeRevoked(opening));
             client.subscription = subscription;
             if (subscription == null) closeRevoked(client);
@@ -83,12 +81,10 @@ public class OrganizationWebSocket {
                             : jakarta.websocket.CloseReason.CloseCodes.UNEXPECTED_CONDITION,
                     revoked ? "Session ended" : "Synchronization failed; reconnect"));
         } catch (java.io.IOException | RuntimeException ignored) {
-            // Best-effort transport cleanup must never interrupt other clients.
-            // The subscription was already removed, even if close itself fails.
+
         }
     }
 
-    /** Close current sockets without changing the authenticated HTTP session. */
     public static void closeToken(String token) {
         if (token == null) return;
         for (Client client : CLIENTS.values()) if (token.equals(client.token)) closeRevoked(client);
@@ -111,8 +107,7 @@ public class OrganizationWebSocket {
                     client.session.getAsyncRemote().sendText(message, result -> {
                         if (!result.isOK()) {
                             failed.set(true);
-                            // An implementation may call back synchronously. Defer
-                            // its close until sendIfActive released the token gate.
+
                             if (handoffEnded.get()) closeFailedSession(client);
                         }
                     });

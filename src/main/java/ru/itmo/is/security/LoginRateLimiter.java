@@ -7,12 +7,6 @@ import java.util.Objects;
 import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
-/**
- * One-process, bounded authentication limiter. Time comes from a monotonic ticker;
- * hashing and persistence happen outside this short synchronized critical section.
- * Username windows are separate for login/register; the actual peer IP and the
- * high global safety ceiling are shared by both operations.
- */
 public final class LoginRateLimiter {
     public enum Operation { LOGIN, REGISTER }
 
@@ -35,7 +29,6 @@ public final class LoginRateLimiter {
         this(System::nanoTime, Duration.ofMinutes(1), 30, 120, 1000, 4096, 2048);
     }
 
-    // Package-private configuration and clock injection keep tests deterministic.
     LoginRateLimiter(LongSupplier nanoTime, Duration window, int usernameLimit,
                      int ipLimit, int globalLimit, int maxUsers, int maxIps) {
         this.nanoTime = Objects.requireNonNull(nanoTime);
@@ -56,7 +49,6 @@ public final class LoginRateLimiter {
         return username != null && USERNAME.matcher(username).matches();
     }
 
-    /** Combined admission for already validated callers; the Servlet uses the two stages below. */
     public synchronized Decision allow(Operation operation, String username, String remoteAddr) {
         Objects.requireNonNull(operation);
         if (!validUsername(username)) return new Decision(false, secondsCeiling(windowNanos));
@@ -64,7 +56,6 @@ public final class LoginRateLimiter {
         return peer.allowed() ? allowUsername(operation, username) : peer;
     }
 
-    /** FIRST stage, before reading/parsing any body. remoteAddr is the actual Servlet peer. */
     public synchronized Decision allowPeer(String remoteAddr) {
         if (remoteAddr == null || remoteAddr.isBlank() || remoteAddr.length() > 64) {
             return new Decision(false, secondsCeiling(windowNanos));
@@ -73,23 +64,21 @@ public final class LoginRateLimiter {
         addresses.values().removeIf(bucket -> expired(bucket, now));
         if (expired(global, now)) global = new Bucket(now);
         Bucket ip = addresses.get(remoteAddr);
-        // An already-blocked peer must not drain the global work budget for other IPs.
+
         if (ip != null && ip.attempts >= ipLimit) return denied(ip, now);
         if (ip == null && addresses.size() >= maxIps) return saturated(addresses, now);
         if (global.attempts >= globalLimit) return denied(global, now);
         if (ip == null) {
-            // Fail closed instead of evicting live keys and resetting their allowance.
+
             ip = new Bucket(now);
             addresses.put(remoteAddr, ip);
         }
         global.attempts++;
-        // Malformed and username-denied attempts consume peer/global allowance,
-        // but only until this peer itself is blocked.
+
         ip.attempts++;
         return ALLOWED;
     }
 
-    /** SECOND stage, after a successful peer check and bounded request/username validation. */
     public synchronized Decision allowUsername(Operation operation, String username) {
         Objects.requireNonNull(operation);
         if (!validUsername(username)) return new Decision(false, secondsCeiling(windowNanos));
@@ -113,7 +102,7 @@ public final class LoginRateLimiter {
 
     private Decision denied(Bucket bucket, long now) {
         long elapsed = now - bucket.started;
-        // A test clock moving backwards must not reset an exhausted live bucket.
+
         long remaining = elapsed < 0 ? windowNanos : windowNanos - elapsed;
         return new Decision(false, secondsCeiling(remaining));
     }
@@ -128,7 +117,7 @@ public final class LoginRateLimiter {
     }
 
     private static long secondsCeiling(long nanos) {
-        // Avoid overflowing on nanos + NANOS_PER_SECOND - 1.
+
         return Math.max(1, nanos / NANOS_PER_SECOND + (nanos % NANOS_PER_SECOND == 0 ? 0 : 1));
     }
 

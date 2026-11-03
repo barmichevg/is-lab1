@@ -14,7 +14,6 @@ import java.util.logging.*;
 public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
     private static final Logger LOG = Logger.getLogger(ApiExceptionMapper.class.getName());
 
-    // Only application-owned SQLSTATEs and fixed messages are exposed to clients.
     private static final Map<String, SqlProblem> APPLICATION_ERRORS = Map.ofEntries(
             problem("P1001", 409, "Нельзя добавить сотрудника: employeesCount достиг максимума (9223372036854775807)."),
             problem("P1002", 409, "Объединение невозможно: сумма employeesCount превышает максимум (9223372036854775807)."),
@@ -62,7 +61,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
 
     @Override public Response toResponse(Throwable exception) {
         List<Throwable> failures = failures(exception);
-        // Inspect the whole graph first: a SQL wrapper must not mask an optimistic conflict.
+
         for (Throwable failure : failures) {
             if (failure instanceof OptimisticLockException
                     || failure.getClass().getName().equals("org.eclipse.persistence.exceptions.OptimisticLockException")) {
@@ -73,8 +72,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
             if (failure instanceof ApiValidationException validation) return json(400, "Validation failed", validation.getErrors());
             if (failure instanceof NotFoundException) return json(404, failure.getMessage(), null);
         }
-        // A driver/batch exception may carry a generic SQLSTATE while the chained
-        // exception contains the application-specific reason. Prefer that reason.
+
         for (Throwable failure : failures) {
             if (failure instanceof SQLException sql) {
                 String state = sql.getSQLState();
@@ -97,8 +95,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
         if (exception instanceof WebApplicationException web && web.getResponse().getStatus() < 500) {
             return json(web.getResponse().getStatus(), "Invalid request", null);
         }
-        // Never log arbitrary throwable messages here: JDBC messages, SQL and
-        // server detail/hint may contain user data or credentials, even when wrapped.
+
         LOG.log(Level.SEVERE, "API request failed ({0})", exception == null ? "null" : exception.getClass().getName());
         return json(500, "Internal server error", null);
     }
@@ -126,8 +123,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
         String state = sql.getSQLState();
         if (state == null) return null;
         if (sql instanceof PSQLException postgres && postgres.getServerErrorMessage() != null) {
-            // Read only the constraint identifier; never expose the server message,
-            // detail, hint, table/column names or an unrecognised identifier.
+
             String constraint = postgres.getServerErrorMessage().getConstraint();
             String message = constraint == null ? null : switch (state) {
                 case "23514" -> CHECK_ERRORS.get(constraint);
@@ -144,7 +140,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
         if (state == null) return null;
         SqlProblem known = SQL_ERRORS.get(state);
         if (known != null) return known;
-        // Keep unrecognised data/integrity errors safe without echoing SQLSTATE.
+
         if (state.startsWith("22") || state.startsWith("23")) {
             return new SqlProblem(409, "Операция нарушает ограничение данных. Проверьте значения полей и связи объектов.");
         }

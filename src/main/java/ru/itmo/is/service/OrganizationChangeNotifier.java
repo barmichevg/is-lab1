@@ -35,13 +35,12 @@ public class OrganizationChangeNotifier {
                 });
                 return;
             }
-            // Only a positively identified non-transactional call may send immediately.
-            // Unknown, completing and rolled-back transactions must never publish changes.
+
             if (status == Status.STATUS_NO_TRANSACTION) {
                 broadcast(type, id);
             }
         } catch (RuntimeException failure) {
-            // A registration failure does not mean the surrounding transaction committed.
+
             LOG.log(Level.WARNING, "Change notification suppressed: transaction completion is not confirmed", failure);
         }
     }

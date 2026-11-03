@@ -1,10 +1,5 @@
 package ru.itmo.is.dto;
 
-/**
- * Reference-or-create DTO.
- * If id is specified, the existing Location entity is used and the other fields are ignored.
- * Otherwise a new Location entity is created from the supplied values.
- */
 public class LocationInputDto {
     private Integer id;
     private Double x;

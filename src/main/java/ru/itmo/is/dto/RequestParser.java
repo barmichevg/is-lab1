@@ -7,7 +7,6 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Parse exact JSON numbers before narrowing to the domain's numeric types. */
 public final class RequestParser {
     private RequestParser() {}
     public static JsonObject object(String text) {

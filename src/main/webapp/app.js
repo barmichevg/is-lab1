@@ -1,7 +1,3 @@
-
-
-
-/* Shared session, HTTP, WebSocket and small UI helpers. No framework needed. */
 const Lab = (() => {
     let auth=null, pendingAuth=null, leaving=false;
     const status=document.createElement('div');
@@ -57,7 +53,7 @@ const Lab = (() => {
                 const a=await session();
                 const base=new URL('.',location.href);
                 socket=new WebSocket(`${base.protocol==='https:'?'wss:':'ws:'}//${base.host}${base.pathname}ws/organizations?token=${encodeURIComponent(a.wsToken)}`);
-                socket.onopen=()=>refresh(null); // Full resync after every reconnect.
+                socket.onopen=()=>refresh(null);
                 socket.onmessage=e=> { let event=null; try {event=JSON.parse(e.data);} catch(_) {} refresh(event); };
                 socket.onclose=e=> {
                     if(e.code===1008) { auth=null; location.replace('login.html'); return; }
@@ -108,11 +104,10 @@ const Lab = (() => {
     function typeLabel(type) { return ({COMMERCIAL:'Коммерческая',GOVERNMENT:'Государственная',PRIVATE_LIMITED_COMPANY:'ООО'})[type] || String(type??''); }
     function formatNumber(n) {
         try {
-            // Integer strings carry Java long values: never round them through Number.
+
             if(typeof n==='string' && /^-?\d+$/.test(n)) return BigInt(n).toLocaleString('ru-RU');
             return Number(n).toLocaleString('ru-RU',{maximumSignificantDigits:17});
         } catch(_) { return String(n??''); }
     }
     return {request,connect,fillSelect,number,fieldError,formatNumber,typeLabel};
 })();
-

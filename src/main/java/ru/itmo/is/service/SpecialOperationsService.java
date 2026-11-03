@@ -66,7 +66,7 @@ public class SpecialOperationsService {
 
     @Transactional
     public OrganizationResponseDto merge(MergeOrganizationsRequestDto input) {
-        // Merge replaces two rows; exclude every writer before validating/loading them.
+
         mutationLock.exclusive();
         validateMerge(input);
 
@@ -90,7 +90,7 @@ public class SpecialOperationsService {
         organizationRepository.clear();
         Organization created = requireOrganization(newId);
         OrganizationResponseDto resultDto = mapper.toDto(created);
-        // One invalidation covers creation AND disappearance of both sources.
+
         notifier.afterCommit("REFRESH", newId);
         return resultDto;
     }
