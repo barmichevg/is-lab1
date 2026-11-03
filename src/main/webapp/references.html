@@ -3,71 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Справочники — ЛР1 v0.5</title>
-    <style>
-        :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#171717; }
-        body { max-width:1200px; margin:26px auto; padding:0 16px 40px; }
-        nav { display:flex; gap:8px; margin:14px 0 22px; }
-        nav a { padding:8px 12px; border:1px solid #bbb; border-radius:6px; text-decoration:none; color:#171717; }
-        nav a.active { background:#171717; color:white; border-color:#171717; }
-        h2 { margin-top:28px; }
-        table { width:100%; border-collapse:collapse; font-size:14px; }
-        th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align:top; }
-        th { background:#f5f5f5; }
-        button, select { padding:8px 10px; font:inherit; }
-        button { cursor:pointer; }
-        .error { color:#b00020; white-space:pre-wrap; margin:10px 0; }
-        dialog { width:min(520px, 94vw); border:1px solid #555; }
-        dialog label { display:flex; flex-direction:column; gap:6px; margin:14px 0; }
-        .actions { display:flex; gap:8px; margin-top:14px; }
-    </style>
+    <title>Справочники — Реестр</title>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
-<h1>Справочники</h1>
-<nav>
-    <a href="index.html">Организации</a>
-    <a href="special.html">Специальные операции</a>
-    <a href="references.html" class="active">Справочники</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header class="app-header">
+    <a class="brand" href="index.html">Информационные системы · Лабораторная работа № 1</a>
+    <nav aria-label="Основная навигация">
+        <a href="index.html">Организации</a>
+        <a href="special.html">Операции</a>
+        <a href="references.html" class="active" aria-current="page">Справочники</a>
+    </nav>
+    <div class="session-tools"><span id="sessionUser" class="session-user"></span></div>
+</header>
+<main id="main" class="workspace">
+<section class="page-heading">
+    <h1>Справочники</h1>
+    <div id="connectionSlot"></div>
+</section>
+<div id="error" class="error" role="alert"></div>
+<div class="reference-search searchbar">
+    <label>Поиск по ID или значению <input id="referenceSearch" type="search" oninput="render()" placeholder="Название, индекс или координата"></label>
+</div>
+<nav class="section-nav" aria-label="Разделы справочников">
+    <a href="#coordinatesSection">Координаты</a><a href="#addressesSection">Адреса</a><a href="#locationsSection">Города</a>
 </nav>
+<p id="loading" role="status"></p>
 
-<div id="error" class="error"></div>
+<section id="coordinatesSection" class="reference-section panel" aria-labelledby="coordinatesHeading">
+    <div class="panel-heading"><h2 id="coordinatesHeading">Координаты</h2><span id="coordinatesCount" class="count-badge" aria-live="polite">0</span></div>
+    <div class="table-wrap" role="region" aria-label="Таблица координат" tabindex="0">
+        <table>
+            <thead><tr><th scope="col">ID</th><th scope="col">Координата X</th><th scope="col">Координата Y</th><th scope="col">Действия</th></tr></thead>
+            <tbody id="coordinatesRows"></tbody>
+        </table>
+    </div>
+</section>
 
-<h2>Coordinates</h2>
-<table>
-    <thead><tr><th>ID</th><th>X</th><th>Y</th><th>Actions</th></tr></thead>
-    <tbody id="coordinatesRows"></tbody>
-</table>
+<section id="addressesSection" class="reference-section panel" aria-labelledby="addressesHeading">
+    <div class="panel-heading"><h2 id="addressesHeading">Адреса</h2><span id="addressesCount" class="count-badge" aria-live="polite">0</span></div>
+    <div class="table-wrap" role="region" aria-label="Таблица адресов" tabindex="0">
+        <table>
+            <thead><tr><th scope="col">ID</th><th scope="col">Почтовый индекс</th><th scope="col">Город и координаты</th><th scope="col">Действия</th></tr></thead>
+            <tbody id="addressesRows"></tbody>
+        </table>
+    </div>
+</section>
 
-<h2>Address</h2>
-<table>
-    <thead><tr><th>ID</th><th>Zip code</th><th>Town</th><th>Actions</th></tr></thead>
-    <tbody id="addressesRows"></tbody>
-</table>
+<section id="locationsSection" class="reference-section panel" aria-labelledby="locationsHeading">
+    <div class="panel-heading"><h2 id="locationsHeading">Города</h2><span id="locationsCount" class="count-badge" aria-live="polite">0</span></div>
+    <div class="table-wrap" role="region" aria-label="Таблица городов" tabindex="0">
+        <table>
+            <thead><tr><th scope="col">ID</th><th scope="col">Название</th><th scope="col">Координата X</th><th scope="col">Координата Y</th><th scope="col">Координата Z</th><th scope="col">Действия</th></tr></thead>
+            <tbody id="locationsRows"></tbody>
+        </table>
+    </div>
+</section>
 
-<h2>Location</h2>
-<table>
-    <thead><tr><th>ID</th><th>Name</th><th>X</th><th>Y</th><th>Z</th><th>Actions</th></tr></thead>
-    <tbody id="locationsRows"></tbody>
-</table>
-
-<dialog id="replacementDialog">
+<dialog id="replacementDialog" aria-labelledby="replacementTitle">
     <h2 id="replacementTitle">Выбор замены</h2>
-    <label>Новый объект
+    <p id="usageInfo" role="status"></p><label id="replacementLabel">Объект для замены
         <select id="replacementSelect"></select>
     </label>
-    <div id="replacementError" class="error"></div>
-    <div class="actions">
-        <button type="button" onclick="replaceAndDelete()">Перепривязать и удалить</button>
-        <button type="button" onclick="replacementDialog.close()">Отмена</button>
-    </div>
+    <div id="replacementError" class="error" role="alert"></div>
+    <footer class="dialog-actions">
+        <button type="button" id="deleteReferenceConfirm" class="danger" onclick="replaceAndDelete()">Перепривязать и удалить</button>
+        <button type="button" onclick="if(!deleting) replacementDialog.close()">Отмена</button>
+    </footer>
 </dialog>
+</main>
 
+<script src="app.js"></script>
 <script>
 const refApi = 'api/reference';
 const $ = id => document.getElementById(id);
 const replacementDialog = $('replacementDialog');
 let refs = {coordinates:[], addresses:[], locations:[]};
 let pendingDelete = null;
+let deleting=false,dataVersion=0,usageGeneration=0;
 let pageLeaving = false;
 let organizationSocket = null;
 
@@ -86,97 +100,110 @@ function showError(targetId, error) {
     $(targetId).textContent = error?.message || String(error);
 }
 
-document.querySelectorAll('nav a').forEach(link => link.addEventListener('click', beginPageLeave));
+
 window.addEventListener('pagehide', beginPageLeave);
 
-async function request(url, options={}) {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-        let body = null;
-        try { body = await response.json(); } catch (_) {}
-        const details = Array.isArray(body?.details) && body.details.length ? `\n${body.details.join('\n')}` : '';
-        throw new Error((body?.error || `${response.status} ${response.statusText}`) + details);
-    }
-    return response.status === 204 ? null : response.json();
-}
+async function request(url, options={}) { return Lab.request(url, options); }
 
 async function loadData() {
+    const version=++dataVersion;
     try {
         $('error').textContent = '';
-        [refs.coordinates, refs.addresses, refs.locations] = await Promise.all([
+        $('loading').textContent='Загрузка…';
+        const [coordinates, addresses, locations] = await Promise.all([
             request(`${refApi}/coordinates`),
             request(`${refApi}/addresses`),
             request(`${refApi}/locations`)
         ]);
+        if(version!==dataVersion || pageLeaving)return;
+        refs={coordinates,addresses,locations};
+        $('loading').textContent='';
         render();
+        if(replacementDialog.open && pendingDelete && !deleting) await refreshDelete();
     } catch (e) {
+        if(version!==dataVersion || pageLeaving)return;
+        $('loading').textContent='Ошибка загрузки';
         showError('error', e);
+        throw e;
     }
 }
 
 function render() {
-    $('coordinatesRows').innerHTML = refs.coordinates.map(c => `<tr>
-        <td>${c.id}</td><td>${c.x}</td><td>${c.y}</td>
-        <td><button type="button" onclick="deleteReference('coordinates', ${c.id})">Удалить</button></td>
-    </tr>`).join('');
-
-    $('addressesRows').innerHTML = refs.addresses.map(a => `<tr>
-        <td>${a.id}</td><td>${escapeHtml(a.zipCode)}</td><td>${escapeHtml(locationLabel(a.town))}</td>
-        <td><button type="button" onclick="deleteReference('addresses', ${a.id})">Удалить</button></td>
-    </tr>`).join('');
-
-    $('locationsRows').innerHTML = refs.locations.map(l => `<tr>
-        <td>${l.id}</td><td>${escapeHtml(l.name)}</td><td>${l.x}</td><td>${l.y}</td><td>${l.z}</td>
-        <td><button type="button" onclick="deleteReference('locations', ${l.id})">Удалить</button></td>
-    </tr>`).join('');
-}
-
-async function deleteReference(kind, id) {
-    try {
-        $('error').textContent = '';
-        const usage = await request(`${refApi}/${kind}/${id}/usage`);
-        if (Number(usage.totalReferences) === 0) {
-            await request(`${refApi}/${kind}/${id}`, {method:'DELETE'});
-            await loadData();
-            return;
+    const query=$('referenceSearch').value.toLowerCase();
+    const matches=item=>JSON.stringify(item).toLowerCase().includes(query);
+    const columns={coordinates:c=>[c.id,c.x,c.y],addresses:a=>[a.id,a.zipCode,locationLabel(a.town)],locations:l=>[l.id,l.name,l.x,l.y,l.z]};
+    for(const kind of ['coordinates','addresses','locations']){
+        const items=refs[kind].filter(matches),body=$(kind+'Rows');
+        $(kind+'Count').textContent=query?`${items.length} / ${refs[kind].length}`:String(refs[kind].length);
+        $(kind+'Count').setAttribute('aria-label',query?`Найдено ${items.length} из ${refs[kind].length}`:`Всего объектов: ${refs[kind].length}`);
+        body.replaceChildren();
+        for(const item of items){
+            const row=body.insertRow();
+            for(const value of columns[kind](item))row.insertCell().textContent=String(value??'');
+            const button=document.createElement('button');button.type='button';button.className='danger-quiet';button.textContent='Удалить';
+            button.setAttribute('aria-label',`Удалить ${kindLabel(kind)} #${item.id}`);
+            button.addEventListener('click',()=>deleteReference(kind,item.id));row.insertCell().append(button);
         }
-
-        const candidates = refs[kind].filter(item => item.id !== id);
-        if (!candidates.length) {
-            throw new Error('Нет объекта для замены');
+        if(!items.length){
+            const cell=body.insertRow().insertCell();cell.colSpan=kind==='locations'?6:4;cell.className='empty';cell.textContent=query?'Ничего не найдено.':'Объектов пока нет.';
         }
-
-        pendingDelete = {kind, id};
-        $('replacementTitle').textContent = `${kindLabel(kind)} #${id}`;
-        $('replacementSelect').innerHTML = candidates
-            .map(item => `<option value="${item.id}">${escapeHtml(referenceLabel(kind, item))}</option>`)
-            .join('');
-        $('replacementError').textContent = '';
-        replacementDialog.showModal();
-    } catch (e) {
-        showError('error', e);
     }
 }
 
+// Invalidate synchronously; the native close event is queued and may arrive
+// after another deletion dialog has opened.
+const nativeReplacementClose=replacementDialog.close.bind(replacementDialog);
+replacementDialog.close=()=>{pendingDelete=null;++usageGeneration;nativeReplacementClose();};
+async function deleteReference(kind,id) {
+    if(deleting)return;
+    const target=pendingDelete={kind,id}; $('replacementError').textContent='';
+    $('replacementTitle').textContent=`Удалить ${kindLabel(kind)} #${id}?`;
+    $('usageInfo').textContent='Загрузка связей…';
+    $('replacementSelect').replaceChildren();$('replacementLabel').hidden=true;
+    $('deleteReferenceConfirm').disabled=true;
+    if(!replacementDialog.open)replacementDialog.showModal();
+    try { await refreshDelete(); }
+    catch(e) {if(pendingDelete===target && !pageLeaving)showError('replacementError',e);}
+}
+async function refreshDelete() {
+    const target=pendingDelete;if(!target)return;
+    const generation=++usageGeneration;
+    const active=()=>pendingDelete===target && generation===usageGeneration && !pageLeaving;
+    target.ready=false;$('deleteReferenceConfirm').disabled=true;
+    try {
+        const usage=await request(`${refApi}/${target.kind}/${target.id}/usage`);
+        if(!active())return;
+        target.used=Number(usage.totalReferences)>0;
+        $('replacementTitle').textContent=`Удалить ${kindLabel(target.kind)} #${target.id}?`;
+        $('usageInfo').textContent='';
+        $('replacementLabel').hidden=!target.used;
+        $('deleteReferenceConfirm').textContent=target.used?'Перепривязать и удалить':'Удалить';
+        Lab.fillSelect($('replacementSelect'),refs[target.kind].filter(item=>item.id!==target.id),item=>referenceLabel(target.kind,item),message=>$('replacementError').textContent=message);
+        target.ready=true;$('deleteReferenceConfirm').disabled=false;
+    } catch(e) {
+        if(!active())return;
+        if(e.status===404){replacementDialog.close();$('error').textContent='Объект уже удалён.';}
+        else throw e;
+    }
+}
 async function replaceAndDelete() {
-    if (!pendingDelete) return;
+    if(!pendingDelete || !pendingDelete.ready || deleting)return;
+    deleting=true;$('deleteReferenceConfirm').disabled=true;
     try {
-        $('replacementError').textContent = '';
-        const replacementId = Number($('replacementSelect').value);
-        const {kind, id} = pendingDelete;
-        await request(`${refApi}/${kind}/${id}?replacementId=${replacementId}`, {method:'DELETE'});
-        pendingDelete = null;
-        replacementDialog.close();
-        await loadData();
-    } catch (e) {
-        showError('replacementError', e);
-    }
+        $('replacementError').textContent='';
+        const {kind,id,used}=pendingDelete,replacement=$('replacementSelect').value;
+        if(used&&!replacement)throw new Error('Выберите объект для замены.');
+        await request(`${refApi}/${kind}/${id}`+(used?`?replacementId=${replacement}`:''),{method:'DELETE'});
+        pendingDelete=null;replacementDialog.close();await loadData();
+    }catch(e){showError('replacementError',e);}
+    finally{deleting=false;$('deleteReferenceConfirm').disabled=false;}
 }
+replacementDialog.addEventListener('cancel',e=>{e.preventDefault();if(!deleting)replacementDialog.close();});
 
 function kindLabel(kind) {
-    if (kind === 'coordinates') return 'Coordinates';
-    if (kind === 'addresses') return 'Address';
-    return 'Location';
+    if (kind === 'coordinates') return 'координаты';
+    if (kind === 'addresses') return 'адрес';
+    return 'город';
 }
 
 function referenceLabel(kind, item) {
@@ -193,19 +220,9 @@ function escapeHtml(v) {
     return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
 
-function connectWebSocket() {
-    if (pageLeaving) return;
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
-    organizationSocket = new WebSocket(`${protocol}//${location.host}${base}ws/organizations`);
-    organizationSocket.onmessage = () => { if (!pageLeaving) loadData(); };
-    organizationSocket.onclose = () => {
-        organizationSocket = null;
-        if (!pageLeaving) setTimeout(connectWebSocket, 1500);
-    };
-}
+function connectWebSocket() { Lab.connect(async event => { await loadData(); }); }
 
-loadData();
+loadData().catch(()=>{});
 connectWebSocket();
 </script>
 </body>

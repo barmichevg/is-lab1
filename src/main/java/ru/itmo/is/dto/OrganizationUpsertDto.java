@@ -3,6 +3,7 @@ package ru.itmo.is.dto;
 import ru.itmo.is.model.OrganizationType;
 
 public class OrganizationUpsertDto {
+    private Long version;
     private String name;
     private CoordinatesInputDto coordinates;
     private AddressInputDto officialAddress;
@@ -12,6 +13,8 @@ public class OrganizationUpsertDto {
     private OrganizationType type;
     private AddressInputDto postalAddress;
 
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public CoordinatesInputDto getCoordinates() { return coordinates; }

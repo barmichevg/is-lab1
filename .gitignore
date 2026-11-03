@@ -3,3 +3,15 @@ target/
 *.iml
 .env
 .DS_Store
+
+users.properties
+*.log
+
+node_modules/
+dist/
+auth-data/
+
+# Python-generated caches
+__pycache__/
+*.pyc
+*.pyo

@@ -9,6 +9,8 @@ import ru.itmo.is.dto.LocationInputDto;
 import ru.itmo.is.dto.OrganizationResponseDto;
 import ru.itmo.is.dto.OrganizationUpsertDto;
 import ru.itmo.is.exception.NotFoundException;
+import ru.itmo.is.exception.ApiValidationException;
+import jakarta.persistence.OptimisticLockException;
 import ru.itmo.is.mapper.OrganizationMapper;
 import ru.itmo.is.model.Address;
 import ru.itmo.is.model.Coordinates;
@@ -36,6 +38,9 @@ public class OrganizationService {
     @Inject
     OrganizationChangeNotifier notifier;
 
+    @Inject
+    ru.itmo.is.repository.MutationLock mutationLock;
+
     public List<OrganizationResponseDto> findAll(int page, int size,
                                                   String filterField, String filterValue,
                                                   String sortField, String direction) {
@@ -55,6 +60,7 @@ public class OrganizationService {
 
     @Transactional
     public OrganizationResponseDto create(OrganizationUpsertDto input) {
+        mutationLock.shared();
         validator.validate(input);
 
         Organization organization = new Organization();
@@ -74,9 +80,18 @@ public class OrganizationService {
 
     @Transactional
     public OrganizationResponseDto update(int id, OrganizationUpsertDto input) {
+        mutationLock.shared();
         validator.validate(input);
 
+        if (input.getVersion() == null || input.getVersion() < 0) {
+            throw new ApiValidationException(List.of("version: required for update; use the version from the last loaded organization"));
+        }
         Organization existing = findOrganization(id);
+        if (existing.getVersion() != input.getVersion()) {
+            throw new OptimisticLockException("Organization version is stale");
+        }
+        // Also validate unchanged PUTs; dirty writes are protected by @Version at flush.
+        organizationRepository.checkVersion(existing);
         applySimpleFields(existing, input);
         existing.setCoordinates(resolveCoordinates(input.getCoordinates()));
         existing.setOfficialAddress(resolveAddress(input.getOfficialAddress()));
@@ -92,6 +107,7 @@ public class OrganizationService {
 
     @Transactional
     public void delete(int id) {
+        mutationLock.shared();
         Organization existing = findOrganization(id);
         organizationRepository.remove(existing);
         organizationRepository.flush();

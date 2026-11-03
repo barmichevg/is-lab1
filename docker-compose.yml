@@ -16,20 +16,67 @@ services:
       timeout: 3s
       retries: 10
 
+  # Only this short-lived initializer runs as root. The application stays UID 1000.
+  # Keep the bind mount so existing accounts survive the upgrade unchanged.
+  accounts-init:
+    image: payara/server-full:6.2025.11-jdk17
+    user: "0:0"
+    network_mode: none
+    read_only: true
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mkdir -p /accounts
+        chown 1000:1000 /accounts
+        chmod 700 /accounts
+        if [ -f /accounts/users.properties ]; then
+          chown 1000:1000 /accounts/users.properties
+          chmod 600 /accounts/users.properties
+        fi
+    volumes:
+      - ./auth-data:/accounts
+    restart: "no"
+
   payara:
     image: payara/server-full:6.2025.11-jdk17
     environment:
       DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/information_systems}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      AUTH_USERS_FILE: /opt/payara/accounts/users.properties
     ports:
       - "8080:8080"
       - "4848:4848"
     volumes:
       - ./target/is-lab1.war:/opt/payara/deployments/is-lab1.war:ro
+      - ./auth-data:/opt/payara/accounts
     depends_on:
       postgres:
         condition: service_healthy
+      accounts-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/8080
+          printf 'HEAD /is-lab1/login.html HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          IFS= read -r status <&3
+          case "$$status" in *" 200 "*) exit 0 ;; *) exit 1 ;; esac
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 12
+
+# Avoid the 172.18.0.0 range used by some VPN TUN adapters.
+# Override when this subnet is already used on another machine.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${LAB1_DOCKER_SUBNET:-172.30.136.0/24}
 
 volumes:
   postgres-data:

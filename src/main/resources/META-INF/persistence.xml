@@ -7,6 +7,9 @@
         <class>ru.itmo.is.model.Coordinates</class>
         <class>ru.itmo.is.model.Address</class>
         <class>ru.itmo.is.model.Location</class>
+        <!-- Native rebind/merge changes shared references. Read them from the DB
+             after acquiring the mutation lock, never from another transaction's L2 cache. -->
+        <shared-cache-mode>NONE</shared-cache-mode>
         <properties>
             <property name="eclipselink.target-database" value="PostgreSQL"/>
             <property name="eclipselink.logging.level" value="INFO"/>

@@ -15,6 +15,7 @@ public class OrganizationMapper {
     public OrganizationResponseDto toDto(Organization entity) {
         OrganizationResponseDto dto = new OrganizationResponseDto();
         dto.setId(entity.getId());
+        dto.setVersion(entity.getVersion());
         dto.setName(entity.getName());
         dto.setCoordinates(toDto(entity.getCoordinates()));
         dto.setCreationDate(entity.getCreationDate());

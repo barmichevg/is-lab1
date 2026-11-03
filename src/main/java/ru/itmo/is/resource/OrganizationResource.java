@@ -7,7 +7,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import ru.itmo.is.dto.OrganizationResponseDto;
+import ru.itmo.is.dto.OrganizationPageDto;
+import ru.itmo.is.dto.OrganizationOptionDto;
+import ru.itmo.is.service.OrganizationPageService;
 import ru.itmo.is.dto.OrganizationUpsertDto;
+import ru.itmo.is.dto.RequestParser;
 import ru.itmo.is.service.OrganizationCreationGuard;
 import ru.itmo.is.service.OrganizationService;
 
@@ -28,9 +32,13 @@ public class OrganizationResource {
 
     @Context
     UriInfo uriInfo;
+    @Context jakarta.servlet.http.HttpServletRequest http;
+
+    @Inject
+    OrganizationPageService pageService;
 
     @GET
-    public Map<String, Object> list(@QueryParam("page") @DefaultValue("0") int page,
+    public OrganizationPageDto list(@QueryParam("page") @DefaultValue("0") int page,
                                     @QueryParam("size") @DefaultValue("10") int size,
                                     @QueryParam("filterField") @DefaultValue("name") String filterField,
                                     @QueryParam("filterValue") String filterValue,
@@ -39,21 +47,21 @@ public class OrganizationResource {
                                     @QueryParam("name") String legacyName) {
         page = Math.max(0, page);
         size = Math.min(100, Math.max(1, size));
+        if ((long) page * size > Integer.MAX_VALUE) throw new BadRequestException();
 
         if ((filterValue == null || filterValue.isBlank()) && legacyName != null && !legacyName.isBlank()) {
             filterField = "name";
             filterValue = legacyName;
         }
 
-        List<OrganizationResponseDto> items = service.findAll(page, size, filterField, filterValue, sort, direction);
-        long total = service.count(filterField, filterValue);
+        return pageService.page(page, size, filterField, filterValue, sort, direction);
+    }
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("items", items);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("total", total);
-        return result;
+    /** Static path wins over /{id}; protected by the same /api/* session filter. */
+    @GET
+    @Path("/options")
+    public List<OrganizationOptionDto> options() {
+        return pageService.options();
     }
 
     @GET
@@ -63,11 +71,11 @@ public class OrganizationResource {
     }
 
     @POST
-    public Response create(OrganizationUpsertDto input,
+    public Response create(String body,
                            @HeaderParam("X-Idempotency-Key") String idempotencyKey) {
         OrganizationResponseDto created = creationGuard.createOnce(
-                idempotencyKey,
-                () -> service.create(input)
+                (String) http.getSession(false).getAttribute("user"), "create", idempotencyKey, body,
+                () -> service.create(RequestParser.organization(body))
         );
         URI uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(created.getId())).build();
         return Response.created(uri).entity(created).build();
@@ -75,8 +83,8 @@ public class OrganizationResource {
 
     @PUT
     @Path("/{id}")
-    public OrganizationResponseDto update(@PathParam("id") int id, OrganizationUpsertDto input) {
-        return service.update(id, input);
+    public OrganizationResponseDto update(@PathParam("id") int id, String body) {
+        return service.update(id, RequestParser.organization(body));
     }
 
     @DELETE

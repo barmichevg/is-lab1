@@ -15,6 +15,8 @@ import java.util.List;
 public class SpecialOperationsResource {
     @Inject
     SpecialOperationsService service;
+    @Inject ru.itmo.is.service.OrganizationCreationGuard guard;
+    @jakarta.ws.rs.core.Context jakarta.servlet.http.HttpServletRequest http;
 
     @GET
     @Path("/min-employees")
@@ -36,13 +38,15 @@ public class SpecialOperationsResource {
 
     @POST
     @Path("/merge")
-    public OrganizationResponseDto merge(MergeOrganizationsRequestDto request) {
-        return service.merge(request);
+    public OrganizationResponseDto merge(String body, @HeaderParam("X-Idempotency-Key") String key) {
+        return guard.createOnce((String) http.getSession(false).getAttribute("user"), "merge", key, body,
+                () -> service.merge(ru.itmo.is.dto.RequestParser.merge(body)));
     }
 
     @POST
     @Path("/{id}/add-employee")
-    public OrganizationResponseDto addEmployee(@PathParam("id") int id) {
-        return service.addEmployee(id);
+    public OrganizationResponseDto addEmployee(@PathParam("id") int id, @HeaderParam("X-Idempotency-Key") String key) {
+        return guard.createOnce((String) http.getSession(false).getAttribute("user"), "add-employee", key,
+                String.valueOf(id), () -> service.addEmployee(id));
     }
 }

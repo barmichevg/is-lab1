@@ -3,126 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Organizations — ЛР1 v0.5.1</title>
-    <style>
-        :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#171717; }
-        body { max-width: 1450px; margin: 26px auto; padding: 0 16px 40px; }
-        h1 { margin-bottom: 4px; }
-        h2, h3, h4 { margin-bottom: 8px; }
-        nav { display:flex; gap:8px; margin:14px 0 18px; }
-        nav a { padding:8px 12px; border:1px solid #bbb; border-radius:6px; text-decoration:none; color:#171717; }
-        nav a.active { background:#171717; color:white; border-color:#171717; }
-        .toolbar { display:flex; gap:8px; margin:18px 0; flex-wrap:wrap; align-items:center; }
-        input, select, button { padding:8px 10px; font:inherit; }
-        button { cursor:pointer; }
-        table { width:100%; border-collapse:collapse; font-size:14px; }
-        th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align:top; }
-        th { background:#f5f5f5; white-space:nowrap; }
-        dialog { width:min(920px, 96vw); max-height:90vh; overflow:auto; border:1px solid #555; }
-        form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-        form h3, form h4, form .full { grid-column:1 / -1; }
-        label { display:flex; flex-direction:column; gap:5px; }
-        .section { grid-column:1 / -1; border:1px solid #ddd; border-radius:6px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .section h4, .section .full { grid-column:1 / -1; }
-        .hidden { display:none !important; }
-        .error { color:#b00020; white-space:pre-wrap; margin-top:8px; }
-        .field-error { color:#b00020; font-size:13px; line-height:1.25; min-height:16px; }
-        input.input-error, select.input-error { border-color:#b00020; outline-color:#b00020; }
-        .success { color:#087b35; }
-        .pagination { margin-top:12px; display:flex; gap:8px; align-items:center; }
-        .details { display:grid; grid-template-columns:180px 1fr; gap:8px 14px; }
-        .details dt { font-weight:600; }
-        .details dd { margin:0; }
-        @media (max-width: 800px) {
-            form, .section { grid-template-columns:1fr; }
-            form h3, form h4, form .full, .section h4, .section .full { grid-column:1; }
-            .details { grid-template-columns:1fr; }
-        }
-    </style>
+    <title>Организации — Реестр</title>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
-<h1>Organizations</h1>
-<nav><a href="index.html" class="active">Организации</a><a href="special.html">Специальные операции</a><a href="references.html">Справочники</a></nav>
-
-<div class="toolbar">
-    <select id="filterField">
-        <option value="name">Name</option>
-        <option value="type">Type</option>
-        <option value="officialZip">Official zip</option>
-        <option value="officialTown">Official town</option>
-        <option value="postalZip">Postal zip</option>
-        <option value="postalTown">Postal town</option>
+<a class="skip-link" href="#main">К содержимому</a>
+<header class="app-header">
+    <a class="brand" href="index.html">Информационные системы · Лабораторная работа № 1</a>
+    <nav aria-label="Основная навигация"><a href="index.html" class="active" aria-current="page">Организации</a><a href="special.html">Операции</a><a href="references.html">Справочники</a></nav>
+    <div class="session-tools"><span id="sessionUser" class="session-user"></span></div>
+</header>
+<main id="main" class="workspace">
+<section class="page-heading">
+    <h1>Организации</h1>
+    <div id="connectionSlot"></div>
+</section>
+<div id="error" class="error" role="alert"></div><div id="success" class="success" role="status"></div>
+<section class="panel" aria-labelledby="registryTitle">
+<div class="panel-heading"><h2 id="registryTitle">Список организаций <span id="totalCount" class="count-badge" aria-label="Количество найденных организаций">—</span></h2><button class="primary create-organization" type="button" onclick="openCreate()"><span class="button-icon" aria-hidden="true">+</span>Создать организацию</button></div>
+<div class="toolbar" role="search" aria-label="Фильтр и сортировка организаций">
+    <label>Фильтровать по<select id="filterField">
+        <option value="name">Название</option>
+        <option value="type">Тип</option>
+        <option value="officialZip">Официальный индекс</option>
+        <option value="officialTown">Город официального адреса</option>
+        <option value="postalZip">Почтовый индекс</option>
+        <option value="postalTown">Город почтового адреса</option>
     </select>
-    <input id="filter" placeholder="Фильтр">
-    <select id="sortField">
+    </label><label class="search-field">Значение фильтра<input id="filter" type="search" placeholder="Введите часть значения…" aria-describedby="filterHint"></label>
+    <label>Сортировать по<select id="sortField">
         <option value="id">ID</option>
-        <option value="name">Name</option>
-        <option value="type">Type</option>
-        <option value="officialZip">Official zip</option>
-        <option value="officialTown">Official town</option>
-        <option value="postalZip">Postal zip</option>
-        <option value="postalTown">Postal town</option>
+        <option value="name">Название</option>
+        <option value="type">Тип</option>
+        <option value="officialZip">Официальный индекс</option>
+        <option value="officialTown">Город официального адреса</option>
+        <option value="postalZip">Почтовый индекс</option>
+        <option value="postalTown">Город почтового адреса</option>
     </select>
-    <select id="sortDirection">
-        <option value="asc">↑</option>
-        <option value="desc">↓</option>
-    </select>
-    <button type="button" onclick="load(0)">Применить</button>
-    <button type="button" onclick="openCreate()">Создать организацию</button>
+    </label><label class="direction-field">Порядок<select id="sortDirection">
+        <option value="asc">↑ Возрастание</option>
+        <option value="desc">↓ Убывание</option>
+    </select></label>
+    <button class="primary" type="button" onclick="load(0).catch(()=>{})">Применить</button>
+    <button class="ghost" type="button" onclick="resetFilters()">Сбросить</button>
 </div>
-
-<div id="error" class="error"></div>
-<table>
+<p id="filterHint" class="toolbar-hint" hidden></p>
+<datalist id="typeSuggestions"><option value="COMMERCIAL">Коммерческая</option><option value="GOVERNMENT">Государственная</option><option value="PRIVATE_LIMITED_COMPANY">ООО</option></datalist>
+<div class="table-wrap" role="region" aria-label="Таблица организаций, прокручивается по горизонтали" tabindex="0"><table class="organization-table">
+    <caption class="sr-only">Организации и все их атрибуты. Просмотр, изменение и удаление открываются в отдельных окнах.</caption>
     <thead>
     <tr>
-        <th>ID</th><th>Name</th><th>Coordinates</th><th>Official address</th><th>Postal address</th>
-        <th>Employees</th><th>Turnover</th><th>Rating</th><th>Type</th><th>Created</th><th>Actions</th>
+        <th scope="col">ID</th><th scope="col">Название</th><th scope="col">Координаты</th><th scope="col">Официальный адрес</th><th scope="col">Почтовый адрес</th>
+        <th scope="col">Сотрудники</th><th scope="col">Годовой оборот</th><th scope="col">Рейтинг</th><th scope="col">Тип</th><th scope="col">Дата создания</th><th scope="col">Действия</th>
     </tr>
     </thead>
     <tbody id="rows"></tbody>
-</table>
+</table></div>
 <div class="pagination">
-    <button type="button" onclick="prevPage()">←</button>
-    <span id="pageInfo"></span>
-    <button type="button" onclick="nextPage()">→</button>
+    <span id="pageInfo" aria-live="polite"></span>
+    <div class="page-controls">
+        <button type="button" id="prevButton" onclick="prevPage()" aria-label="Предыдущая страница">←</button>
+        <button type="button" id="nextButton" onclick="nextPage()" aria-label="Следующая страница">→</button>
+        <select id="pageSize" aria-label="Записей на странице" title="Записей на странице" onchange="size=Number(this.value);load(0).catch(()=>{})"><option value="10">По 10</option><option value="25">По 25</option><option value="50">По 50</option><option value="100">По 100</option></select>
+    </div>
 </div>
+</section>
+<div class="panel lookup-panel"><div class="id-lookup"><label>ID организации <input id="lookupId" type="number" min="1" step="1" placeholder="Напр. 42"></label><button type="button" onclick="lookup()">Открыть</button></div></div>
+</main>
 
-<dialog id="viewer">
-    <h2 id="viewTitle">Организация</h2>
+<dialog id="viewer" aria-labelledby="viewTitle">
+    <div class="dialog-heading"><div><p class="eyebrow">Карточка организации</p><h2 id="viewTitle">Организация</h2><p>Основные сведения и связанные объекты</p></div><button class="dialog-close" type="button" onclick="closeViewer()" aria-label="Закрыть просмотр">×</button></div>
     <dl id="viewDetails" class="details"></dl>
-    <div style="margin-top:16px">
-        <button type="button" onclick="editViewedOrganization()">Изменить</button>
-        <button type="button" onclick="viewer.close()">Закрыть</button>
+    <div id="viewError" class="error" role="alert"></div>
+    <div class="dialog-actions">
+        <button id="viewRetry" type="button" class="hidden" onclick="retryViewer()">Повторить загрузку</button>
+        <button type="button" onclick="closeViewer()">Закрыть</button>
+        <button class="primary" type="button" onclick="editViewedOrganization()">Изменить организацию</button>
     </div>
 </dialog>
 
-<dialog id="editor">
-    <h2 id="dialogTitle">Organization</h2>
-    <form id="form" novalidate>
+<dialog id="creator" aria-labelledby="dialogTitle"></dialog>
+<dialog id="editor" aria-labelledby="dialogTitle">
+    <div class="dialog-heading"><div><p class="eyebrow">Данные организации</p><h2 id="dialogTitle">Организация</h2><p>Заполните сведения или выберите связанные объекты из справочников.</p></div><button class="dialog-close" type="button" onclick="closeEditor()" aria-label="Закрыть форму">×</button></div>
+    <div id="editWarning" class="warning hidden" role="status"></div><form id="form" class="organization-form" novalidate>
         <input id="editId" type="hidden">
+        <h3 class="form-section-title"><span class="step-number" aria-hidden="true">01</span>Основные сведения<small>Все поля обязательны</small></h3>
 
-        <label>Name <input id="orgName" required></label>
-        <label>Type
+        <label>Название <input id="orgName" required maxlength="255" placeholder="Например, Северная компания" autofocus></label>
+        <label>Тип организации
             <select id="orgType" required>
-                <option>COMMERCIAL</option>
-                <option>GOVERNMENT</option>
-                <option>PRIVATE_LIMITED_COMPANY</option>
+                <option value="COMMERCIAL">Коммерческая</option>
+                <option value="GOVERNMENT">Государственная</option>
+                <option value="PRIVATE_LIMITED_COMPANY">ООО</option>
             </select>
         </label>
-        <label>Annual turnover <input id="turnover" type="number" min="0.000001" step="any" required></label>
-        <label>Employees count <input id="employees" type="number" min="1" step="1" required></label>
-        <label>Rating <input id="rating" type="number" min="1" step="1" required></label>
-        <span></span>
+        <label>Годовой оборот <input id="turnover" type="number" min="0.000001" step="any" required placeholder="0,00"><small>Положительное число</small></label>
+        <label>Количество сотрудников <input id="employees" type="text" inputmode="numeric" required placeholder="Например, 120"><small>Целое число больше нуля</small></label>
+        <label>Рейтинг <input id="rating" type="number" min="1" step="1" required placeholder="Например, 5"><small>Целое число больше нуля</small></label>
+        <p class="field-hint">ID и дата создания назначаются автоматически. Существующие связанные объекты остаются общими для организаций.</p>
 
-        <h3>Coordinates</h3>
-        <label class="full">Режим
+        <h3 class="form-section-title"><span class="step-number" aria-hidden="true">02</span>Координаты</h3>
+        <label class="full">Источник данных
             <select id="coordMode" onchange="syncCoordinateMode()">
-                <option value="new">Создать новые Coordinates</option>
-                <option value="existing">Использовать существующие Coordinates</option>
+                <option value="new">Новые координаты</option>
+                <option value="existing">Выбрать координаты из справочника</option>
             </select>
         </label>
         <div id="coordExistingSection" class="section hidden">
-            <label class="full">Coordinates
+            <label class="full">Координаты
                 <select id="coordExisting"></select>
             </label>
         </div>
@@ -131,97 +119,108 @@
             <label>Y <input id="coordY" type="number" step="1" required></label>
         </div>
 
-        <h3>Official address</h3>
-        <label class="full">Режим
+        <h3 class="form-section-title"><span class="step-number" aria-hidden="true">03</span>Официальный адрес<small>Обязательно</small></h3>
+        <label class="full">Источник данных
             <select id="officialMode" onchange="syncOfficialMode()">
-                <option value="new">Создать новый Address</option>
-                <option value="existing">Использовать существующий Address</option>
+                <option value="new">Новый адрес</option>
+                <option value="existing">Выбрать адрес из справочника</option>
             </select>
         </label>
         <div id="officialExistingSection" class="section hidden">
-            <label class="full">Address
+            <label class="full">Адрес
                 <select id="officialExisting"></select>
             </label>
         </div>
         <div id="officialNewSection" class="section">
-            <label class="full">Zip code <input id="officialZip" required></label>
-            <h4>Town</h4>
-            <label class="full">Режим Town
+            <label class="full">Почтовый индекс (может быть пустым) <input id="officialZip" maxlength="255" placeholder="Например, 197101"></label>
+            <h4>Город</h4>
+            <label class="full">Источник данных о городе
                 <select id="officialTownMode" onchange="syncTownMode('official')">
-                    <option value="new">Создать новый Location</option>
-                    <option value="existing">Использовать существующий Location</option>
+                    <option value="new">Новый город</option>
+                    <option value="existing">Выбрать город из справочника</option>
                 </select>
             </label>
             <div id="officialTownExistingSection" class="section hidden">
-                <label class="full">Location
+                <label class="full">Город
                     <select id="officialTownExisting"></select>
                 </label>
             </div>
             <div id="officialTownNewSection" class="section">
-                <label>Name <input id="officialTownName" required></label>
+                <label>Название города <input id="officialTownName" required></label>
                 <label>X <input id="officialTownX" type="number" step="any" required></label>
                 <label>Y <input id="officialTownY" type="number" step="any" required></label>
                 <label>Z <input id="officialTownZ" type="number" step="1" required></label>
             </div>
         </div>
 
-        <h3>Postal address</h3>
-        <label class="full">Режим
+        <h3 class="form-section-title"><span class="step-number" aria-hidden="true">04</span>Почтовый адрес<small>Необязательно</small></h3>
+        <label class="full">Источник данных
             <select id="postalMode" onchange="syncPostalMode()">
-                <option value="none">Нет postalAddress</option>
-                <option value="new">Создать новый Address</option>
-                <option value="existing">Использовать существующий Address</option>
+                <option value="none">Не указывать почтовый адрес</option>
+                <option value="new">Новый адрес</option>
+                <option value="existing">Выбрать адрес из справочника</option>
             </select>
         </label>
         <div id="postalExistingSection" class="section hidden">
-            <label class="full">Address
+            <label class="full">Адрес
                 <select id="postalExisting"></select>
             </label>
         </div>
         <div id="postalNewSection" class="section hidden">
-            <label class="full">Zip code <input id="postalZip"></label>
-            <h4>Town</h4>
-            <label class="full">Режим Town
+            <label class="full">Почтовый индекс (может быть пустым) <input id="postalZip" maxlength="255" placeholder="Например, 197101"></label>
+            <h4>Город</h4>
+            <label class="full">Источник данных о городе
                 <select id="postalTownMode" onchange="syncTownMode('postal')">
-                    <option value="new">Создать новый Location</option>
-                    <option value="existing">Использовать существующий Location</option>
+                    <option value="new">Новый город</option>
+                    <option value="existing">Выбрать город из справочника</option>
                 </select>
             </label>
             <div id="postalTownExistingSection" class="section hidden">
-                <label class="full">Location
+                <label class="full">Город
                     <select id="postalTownExisting"></select>
                 </label>
             </div>
             <div id="postalTownNewSection" class="section">
-                <label>Name <input id="postalTownName"></label>
+                <label>Название города <input id="postalTownName"></label>
                 <label>X <input id="postalTownX" type="number" step="any"></label>
                 <label>Y <input id="postalTownY" type="number" step="any"></label>
                 <label>Z <input id="postalTownZ" type="number" step="1"></label>
             </div>
         </div>
 
-        <div class="full">
-            <button type="button" onclick="fillRandomData()">🎲 Случайные данные</button>
-            <button id="saveButton" type="submit">Сохранить</button>
-            <button type="button" onclick="editor.close()">Отмена</button>
+        <div id="dialogError" class="error dialog-error" role="alert"></div>
+        <div class="full dialog-actions">
+            <button class="ghost sample-button" type="button" onclick="fillRandomData()" title="Заполнить поля случайными тестовыми значениями">Заполнить примером</button>
+            <button type="button" onclick="closeEditor()">Отмена</button>
+            <button class="primary" id="saveButton" type="submit">Сохранить организацию</button>
         </div>
     </form>
-    <div id="dialogError" class="error"></div>
 </dialog>
 
+<dialog id="deleteDialog" aria-labelledby="deleteTitle" aria-describedby="deleteLabel"><p class="eyebrow">Подтверждение действия</p><h2 id="deleteTitle">Удалить организацию?</h2><p id="deleteLabel"></p><div id="deleteError" class="error" role="alert"></div><div class="dialog-actions"><button type="button" onclick="if(!deleting) deleteDialog.close()">Отмена</button><button class="danger" type="button" id="deleteConfirm" onclick="confirmDelete()">Удалить организацию</button></div></dialog>
+<script src="app.js"></script>
 <script>
 const api = 'api/organizations';
 const refApi = 'api/reference';
 let currentPage = 0;
 let total = 0;
-const size = 10;
+let size = 10;
+let loadVersion = 0;
+let editOriginal = null;
+let editVersion = null;
+let editorGeneration = 0, editorRefreshGeneration = 0;
+let viewerGeneration = 0, referencesGeneration = 0;
+let formSnapshot = "";
 let refs = {coordinates: [], addresses: [], locations: []};
 let viewedOrganizationId = null;
+let viewerHasData = false;
 let saveInProgress = false;
 let createRequestKey = null;
+// Keep the exact wire body/key until the outcome is known, even if the draft changes.
+let pendingCreate = null;
 let pageLeaving = false;
 let organizationSocket = null;
-const editor = document.getElementById('editor');
+let editor = document.getElementById('editor');
 const viewer = document.getElementById('viewer');
 const $ = id => document.getElementById(id);
 
@@ -240,64 +239,72 @@ function showError(targetId, error) {
     $(targetId).textContent = error?.message || String(error);
 }
 
-document.querySelectorAll('nav a').forEach(link => link.addEventListener('click', beginPageLeave));
+
 window.addEventListener('pagehide', beginPageLeave);
 
-async function request(url, options={}) {
-    const headers = options.body ? {'Content-Type':'application/json'} : {};
-    const r = await fetch(url, {...options, headers:{...headers, ...(options.headers || {})}});
-    if (!r.ok) {
-        let body = null;
-        try { body = await r.json(); } catch (_) {}
-        const details = Array.isArray(body?.details) && body.details.length ? `\n${body.details.join('\n')}` : '';
-        throw new Error((body?.error || `${r.status} ${r.statusText}`) + details);
-    }
-    return r.status === 204 ? null : r.json();
-}
+async function request(url, options={}) { return Lab.request(url, options); }
 
 async function load(page=currentPage) {
+    const version=++loadVersion;
+    document.querySelector('.organization-table').setAttribute('aria-busy','true');
+    $('prevButton').disabled=true;$('nextButton').disabled=true;
     try {
         $('error').textContent = '';
+        $('pageInfo').textContent = 'Загрузка…';
         currentPage = Math.max(0, page);
         const filterField = encodeURIComponent($('filterField').value);
         const filterValue = encodeURIComponent($('filter').value.trim());
         const sort = encodeURIComponent($('sortField').value);
         const direction = encodeURIComponent($('sortDirection').value);
         const data = await request(`${api}?page=${currentPage}&size=${size}&filterField=${filterField}&filterValue=${filterValue}&sort=${sort}&direction=${direction}`);
+        if(version!==loadVersion) return;
         total = data.total;
+        const last=Math.max(0,Math.ceil(total/size)-1);
+        if(currentPage>last) return load(last);
         $('rows').innerHTML = data.items.map(o => `
             <tr>
-                <td>${o.id}</td>
-                <td>${escapeHtml(o.name)}</td>
-                <td>#${o.coordinates.id} (${o.coordinates.x}, ${o.coordinates.y})</td>
+                <td class="cell-id">#${o.id}</td>
+                <td><button class="entity-link" type="button" onclick="viewOrg(${o.id})" title="Открыть карточку">${escapeHtml(o.name)}</button></td>
+                <td><span class="numeric">${o.coordinates.x}, ${o.coordinates.y}</span><span class="cell-secondary">Координаты #${o.coordinates.id}</span></td>
                 <td>${formatAddress(o.officialAddress)}</td>
                 <td>${o.postalAddress ? formatAddress(o.postalAddress) : '—'}</td>
-                <td>${o.employeesCount}</td>
-                <td>${o.annualTurnover}</td>
-                <td>${o.rating}</td>
-                <td>${o.type}</td>
-                <td>${o.creationDate ?? ''}</td>
-                <td>
+                <td class="numeric">${Lab.formatNumber(o.employeesCount)}</td>
+                <td class="numeric">${Lab.formatNumber(o.annualTurnover)}</td>
+                <td class="numeric">${o.rating}</td>
+                <td><span class="type-badge" title="${escapeHtml(o.type)}">${escapeHtml(Lab.typeLabel(o.type))}</span></td>
+                <td title="${escapeHtml(o.creationDate)}">${escapeHtml(o.creationDate ? new Date(o.creationDate).toLocaleDateString('ru-RU') : '')}<span class="cell-secondary">${escapeHtml(o.creationDate ? new Date(o.creationDate).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '')}</span></td>
+                <td><div class="row-actions">
                     <button type="button" onclick="viewOrg(${o.id})">Просмотр</button>
                     <button type="button" onclick="edit(${o.id})">Изменить</button>
-                    <button type="button" onclick="removeOrg(${o.id})">Удалить</button>
-                </td>
+                    <button class="danger-quiet" type="button" onclick="removeOrg(${o.id})" aria-label="Удалить организацию ${o.id}">Удалить</button>
+                </div></td>
             </tr>`).join('');
-        $('pageInfo').textContent = `Страница ${currentPage + 1}; всего: ${total}`;
+        if(!data.items.length) $('rows').innerHTML='<tr><td colspan="11" class="empty">'+($('filter').value.trim()?'<strong>По фильтру ничего не найдено.</strong>Измените запрос или сбросьте фильтр.':'<strong>Организаций пока нет.</strong>Добавьте первую с помощью кнопки «Создать организацию».')+'</td></tr>';
+        $('totalCount').textContent=Lab.formatNumber(total);
+        $('pageInfo').textContent = `${total ? currentPage*size+1 : 0}–${Math.min((currentPage+1)*size,total)} из ${total}`;
+        $('prevButton').disabled=currentPage===0;
+        $('nextButton').disabled=(currentPage+1)*size>=total;
     } catch (e) {
+        if(version!==loadVersion || pageLeaving)return;
+        $('pageInfo').textContent='Ошибка загрузки';
         showError('error', e);
+        throw e;
+    } finally {
+        if(version===loadVersion) document.querySelector('.organization-table').setAttribute('aria-busy','false');
     }
 }
 
-function prevPage(){ if(currentPage > 0) load(currentPage-1); }
-function nextPage(){ if((currentPage+1)*size < total) load(currentPage+1); }
+function prevPage(){ if(currentPage > 0) load(currentPage-1).catch(()=>{}); }
+function nextPage(){ if((currentPage+1)*size < total) load(currentPage+1).catch(()=>{}); }
 
 async function loadReferences(showMessage=false) {
+    const generation=++referencesGeneration;
     const [coordinates, addresses, locations] = await Promise.all([
         request(`${refApi}/coordinates`),
         request(`${refApi}/addresses`),
         request(`${refApi}/locations`)
     ]);
+    if(generation!==referencesGeneration || pageLeaving)return;
     refs = {coordinates, addresses, locations};
     refillReferenceSelects();
     if (showMessage) $('error').textContent = 'Справочники обновлены.';
@@ -318,24 +325,29 @@ function refillReferenceSelects() {
 }
 
 function fillSelect(id, items, labelFn) {
-    const select = $(id);
-    const selected = select.value;
-    select.innerHTML = '';
-    if (items.length === 0) {
-        const option = new Option('Нет существующих объектов', '');
-        select.add(option);
-        select.disabled = true;
-        return;
-    }
-    select.disabled = false;
-    for (const item of items) select.add(new Option(labelFn(item), String(item.id)));
-    if (items.some(x => String(x.id) === selected)) select.value = selected;
+    Lab.fillSelect($(id), items, labelFn, message => {
+        if(editor.open) { $('editWarning').textContent=message; $('editWarning').classList.remove('hidden'); }
+    });
 }
 
 async function openCreate(){
+    if(saveInProgress)return;
+    const generation=activateEditor('creator');
     try {
         await loadReferences();
+        if(generation!==editorGeneration || pageLeaving)return;
+        editVersion=null; editOriginal=null;
+        if(pendingCreate) {
+            restoreCreateDraft(pendingCreate.draft);
+            $('dialogTitle').textContent='Восстановление создания';
+            $('dialogError').textContent='';clearValidationErrors();syncAllModes();
+            showPendingCreateWarning();
+            formSnapshot=pendingCreate.sentSnapshot;
+            $('saveButton').textContent='Повторить исходный запрос';
+            editor.showModal();return;
+        }
         createRequestKey = newCreateRequestKey();
+        $('saveButton').textContent='Сохранить организацию';
         $('form').reset();
         $('editId').value = '';
         $('dialogTitle').textContent = 'Создание организации';
@@ -347,47 +359,82 @@ async function openCreate(){
         $('postalMode').value = 'none';
         $('postalTownMode').value = 'new';
         syncAllModes();
+        $('editWarning').classList.add('hidden');
+        formSnapshot=snapshot();
         editor.showModal();
     } catch(e) {
+        if(generation!==editorGeneration || pageLeaving)return;
         showError('error', e);
     }
 }
 
-async function viewOrg(id) {
+// Invalidate synchronously: the native close event is queued and may arrive after
+// another dialog has already opened. Also cover callers using viewer.close().
+const nativeViewerClose=viewer.close.bind(viewer);
+viewer.close=()=>{++viewerGeneration;viewedOrganizationId=null;nativeViewerClose();};
+function closeViewer() { viewer.close(); }
+viewer.addEventListener('cancel',e=>{e.preventDefault();closeViewer();});
+
+async function viewOrg(id, {refresh=false}={}) {
+    if(refresh && (!viewer.open || viewedOrganizationId!==id))return;
+    const generation=++viewerGeneration;
+    if(!refresh) {
+        ++editorGeneration; // Invalidate a pending form open before entering the viewer.
+        viewedOrganizationId=id;
+        viewerHasData=false;
+        $('viewTitle').textContent=`Организация #${id}`;
+        $('viewDetails').textContent='Загрузка…';
+        $('viewError').textContent='';$('viewRetry').classList.add('hidden');
+        if(!viewer.open)viewer.showModal();
+    }
     try {
         const o = await request(`${api}/${id}`);
-        viewedOrganizationId = o.id;
+        if(generation!==viewerGeneration || !viewer.open || viewedOrganizationId!==id || pageLeaving)return;
         $('viewTitle').textContent = `Организация #${o.id}`;
         const entries = [
-            ['Name', o.name],
-            ['Type', o.type],
-            ['Creation date', o.creationDate],
-            ['Annual turnover', o.annualTurnover],
-            ['Employees count', o.employeesCount],
-            ['Rating', o.rating],
-            ['Coordinates', `#${o.coordinates.id}: (${o.coordinates.x}, ${o.coordinates.y})`],
-            ['Official address', plainAddress(o.officialAddress)],
-            ['Postal address', o.postalAddress ? plainAddress(o.postalAddress) : '—']
+            ['Название', o.name],
+            ['Тип организации', Lab.typeLabel(o.type)],
+            ['Дата создания', o.creationDate],
+            ['Годовой оборот', Lab.formatNumber(o.annualTurnover)],
+            ['Сотрудники', Lab.formatNumber(o.employeesCount)],
+            ['Рейтинг', o.rating],
+            ['Координаты', `#${o.coordinates.id}: (${o.coordinates.x}, ${o.coordinates.y})`],
+            ['Официальный адрес', plainAddress(o.officialAddress)],
+            ['Почтовый адрес', o.postalAddress ? plainAddress(o.postalAddress) : '—']
         ];
         $('viewDetails').innerHTML = entries.map(([k,v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
-        viewer.showModal();
+        viewerHasData=true;
+        $('viewError').textContent='';$('viewRetry').classList.add('hidden');
     } catch(e) {
-        showError('error', e);
+        if(generation!==viewerGeneration || !viewer.open || viewedOrganizationId!==id || pageLeaving)return;
+        if(e.status===404) {closeViewer();showError('error',e);return;}
+        if(!viewerHasData) $('viewDetails').textContent='';
+        showError('viewError', e);
+        $('viewRetry').classList.remove('hidden');
     }
+}
+function retryViewer() {
+    if(viewer.open && viewedOrganizationId!=null) return viewOrg(viewedOrganizationId,{refresh:true});
 }
 
 async function editViewedOrganization() {
     if (viewedOrganizationId == null) return;
     const id = viewedOrganizationId;
-    viewer.close();
+    closeViewer();
     await edit(id);
 }
 
 async function edit(id){
+    if(saveInProgress)return;
+    const generation=activateEditor('editor');
     try {
         createRequestKey = null;
+        $('saveButton').textContent='Сохранить организацию';
         const [o] = await Promise.all([request(`${api}/${id}`), loadReferences()]);
+        if(generation!==editorGeneration || pageLeaving)return;
         $('form').reset();
+        editOriginal=JSON.stringify(o);
+        editVersion=o.version;
         $('editId').value = o.id;
         $('orgName').value = o.name;
         $('orgType').value = o.type;
@@ -416,8 +463,11 @@ async function edit(id){
         $('dialogError').textContent = '';
         clearValidationErrors();
         syncAllModes();
+        $('editWarning').classList.add('hidden');
+        formSnapshot=snapshot();
         editor.showModal();
     } catch(e) {
+        if(generation!==editorGeneration || pageLeaving)return;
         showError('error', e);
     }
 }
@@ -472,7 +522,8 @@ function syncTownMode(prefix) {
     setRequired(`${prefix}TownX`, !existing);
     setRequired(`${prefix}TownY`, !existing);
     setRequired(`${prefix}TownZ`, !existing);
-    setRequired(`${prefix}Zip`, true);
+    // An empty zip code is valid in this variant; do not advertise it as required to AT.
+    setRequired(`${prefix}Zip`, false);
 }
 
 function setRequired(id, required) {
@@ -482,20 +533,20 @@ function setRequired(id, required) {
 
 function coordinatesPayload() {
     if ($('coordMode').value === 'existing') {
-        return {id: requiredSelectedId('coordExisting', 'Coordinates')};
+        return {id: requiredSelectedId('coordExisting', 'Координаты')};
     }
     return {x: numberValue('coordX'), y: numberValue('coordY')};
 }
 
 function addressPayload(prefix, mode) {
     if (mode === 'existing') {
-        return {id: requiredSelectedId(`${prefix}Existing`, 'Address')};
+        return {id: requiredSelectedId(`${prefix}Existing`, 'Адрес')};
     }
     if (mode === 'none') return null;
 
     const townMode = $(`${prefix}TownMode`).value;
     const town = townMode === 'existing'
-        ? {id: requiredSelectedId(`${prefix}TownExisting`, 'Location')}
+        ? {id: requiredSelectedId(`${prefix}TownExisting`, 'Город')}
         : {
             x: numberValue(`${prefix}TownX`),
             y: numberValue(`${prefix}TownY`),
@@ -513,6 +564,7 @@ function clearFieldError(id) {
     const el = $(id);
     if (!el) return;
     el.classList.remove('input-error');
+    el.removeAttribute('aria-invalid');
     const node = document.querySelector(`[data-error-for="${id}"]`);
     if (node) node.textContent = '';
 }
@@ -521,6 +573,7 @@ function setFieldError(id, message) {
     const el = $(id);
     if (!el) return;
     el.classList.add('input-error');
+    el.setAttribute('aria-invalid','true');
     let node = document.querySelector(`[data-error-for="${id}"]`);
     if (!node) {
         node = document.createElement('div');
@@ -530,12 +583,15 @@ function setFieldError(id, message) {
         if (label) label.appendChild(node);
         else el.insertAdjacentElement('afterend', node);
     }
+    node.id=id+'Error';
     node.textContent = message;
+    const descriptions=new Set((el.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean));
+    descriptions.add(node.id);el.setAttribute('aria-describedby',[...descriptions].join(' '));
 }
 
 function clearValidationErrors() {
     document.querySelectorAll('.field-error').forEach(node => node.textContent = '');
-    document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    document.querySelectorAll('.input-error').forEach(el => {el.classList.remove('input-error');el.removeAttribute('aria-invalid');});
 }
 
 function validateRequiredText(id, emptyMessage = 'Строка не может быть пустой.') {
@@ -547,49 +603,9 @@ function validateRequiredText(id, emptyMessage = 'Строка не может �
     return true;
 }
 
-function validateNumber(id, {
-    integer = false,
-    positive = false,
-    required = true,
-    int32 = false,
-    expectedMessage = null
-} = {}) {
-    const input = $(id);
-    const raw = input.value.trim();
-
-    // For <input type="number"> browsers may expose an invalid textual value
-    // (for example letters) as an empty .value. validity.badInput lets us
-    // distinguish that case from a genuinely empty field.
-    if (input.validity && input.validity.badInput) {
-        setFieldError(id, expectedMessage || 'Введите корректное число.');
-        return false;
-    }
-
-    if (!raw) {
-        if (required) {
-            setFieldError(id, expectedMessage || 'Поле не может быть пустым.');
-        }
-        return !required;
-    }
-
-    const value = Number(raw);
-    if (!Number.isFinite(value)) {
-        setFieldError(id, expectedMessage || 'Введите корректное число.');
-        return false;
-    }
-    if (integer && !Number.isInteger(value)) {
-        setFieldError(id, expectedMessage || 'Значение должно быть целым числом.');
-        return false;
-    }
-    if (int32 && (value < -2147483648 || value > 2147483647)) {
-        setFieldError(id, expectedMessage || 'Значение должно помещаться в диапазон int.');
-        return false;
-    }
-    if (positive && value <= 0) {
-        setFieldError(id, expectedMessage || 'Значение должно быть больше 0.');
-        return false;
-    }
-    return true;
+function validateNumber(id, options={}) {
+    try { Lab.number($(id),{integer:options.integer,long:id==='employees',positive:options.positive,float:id==='turnover'}); return true; }
+    catch(e) { setFieldError(id,e.message); return false; }
 }
 
 function validateExistingSelection(id) {
@@ -673,11 +689,12 @@ function validateOrganizationForm() {
 
 function payload(){
     return {
+        ...($('editId').value ? {version:editVersion} : {}),
         name: $('orgName').value.trim(),
         coordinates: coordinatesPayload(),
         officialAddress: addressPayload('official', $('officialMode').value),
         annualTurnover: numberValue('turnover'),
-        employeesCount: numberValue('employees'),
+        employeesCount: Lab.number($('employees'),{long:true,positive:true}),
         rating: numberValue('rating'),
         type: $('orgType').value,
         postalAddress: addressPayload('postal', $('postalMode').value)
@@ -689,50 +706,110 @@ function newCreateRequestKey() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
+function captureCreateDraft() {
+    return [...$('form').querySelectorAll('input,select')].map(input=>[input.id,input.value]);
+}
+function restoreCreateDraft(draft) {
+    for(const [id,value] of draft) if($(id)) $(id).value=value;
+}
+function rememberCreateDraft() {
+    if(pendingCreate && !$('editId').value) pendingCreate.draft=captureCreateDraft();
+}
+function showPendingCreateWarning() {
+    $('editWarning').textContent='Результат создания ещё не подтверждён. Повторите исходный запрос: его тело и ключ сохранены. Новые правки останутся в форме.';
+    $('editWarning').classList.remove('hidden');
+}
 async function save(e){
     e.preventDefault();
     e.stopImmediatePropagation();
     if (saveInProgress) return;
 
+    const id=$('editId').value, isCreate=!id;
     $('dialogError').textContent = '';
-    if (!validateOrganizationForm()) return;
+    // Resolving an uncertain write must not depend on the validity of a newer draft.
+    if (!(isCreate && pendingCreate) && !validateOrganizationForm()) return;
 
     saveInProgress = true;
     const saveButton = $('saveButton');
     saveButton.disabled = true;
-    const previousText = saveButton.textContent;
-    saveButton.textContent = 'Сохранение…';
-
+    saveButton.textContent = isCreate && pendingCreate ? 'Проверка результата…' : 'Сохранение…';
+    let attempt=null;
     try {
-        const id = $('editId').value;
-        const isCreate = !id;
-        if (isCreate && !createRequestKey) createRequestKey = newCreateRequestKey();
-
-        await request(isCreate ? api : `${api}/${id}`, {
-            method:isCreate ? 'POST' : 'PUT',
-            body:JSON.stringify(payload()),
-            headers:isCreate ? {'X-Idempotency-Key': createRequestKey} : {}
-        });
-
-        if (isCreate) createRequestKey = null;
-        editor.close();
+        if(isCreate) {
+            if(!pendingCreate) {
+                createRequestKey ||= newCreateRequestKey();
+                pendingCreate={key:createRequestKey,body:JSON.stringify(payload()),sentSnapshot:snapshot(),draft:captureCreateDraft()};
+            }
+            attempt=pendingCreate;
+            rememberCreateDraft();
+            const created=await request(api,{method:'POST',body:attempt.body,headers:{'X-Idempotency-Key':attempt.key}});
+            if(!created || !Number.isInteger(created.id) || created.id<=0 || created.version==null) throw new Error('Не удалось подтвердить результат создания. Повторите исходный запрос.');
+            const draftChanged=snapshot()!==attempt.sentSnapshot;
+            pendingCreate=null;createRequestKey=null;
+            if(draftChanged) {
+                // Never create a second organization for edits made after an uncertain POST.
+                // Keep all current fields and require an explicit, versioned PUT instead.
+                activateEditor('editor');
+                $('editId').value=String(created.id);editVersion=created.version;editOriginal=JSON.stringify(created);
+                $('dialogTitle').textContent=`Изменение организации #${created.id}`;
+                $('editWarning').textContent=`Создание организации #${created.id} подтверждено. Новые правки сохранены в форме; нажмите «Сохранить организацию», чтобы обновить эту запись.`;
+                $('editWarning').classList.remove('hidden');
+                formSnapshot=attempt.sentSnapshot;
+                editor.showModal();
+            } else editor.close();
+            $('success').textContent=`Организация #${created.id} создана.`;
+        } else {
+            await request(`${api}/${id}`,{method:'PUT',body:JSON.stringify(payload())});
+            editor.close();$('success').textContent='Организация сохранена.';
+        }
         await Promise.all([load(currentPage), loadReferences()]);
     } catch(e) {
-        showError('dialogError', e);
+        if(isCreate && attempt && pendingCreate===attempt) {
+            rememberCreateDraft();
+            // These domain rejections roll back the claim/write. Network/5xx outcomes
+            // stay uncertain, so the original immutable request MUST be retried.
+            if([400,409,422].includes(e.status)) {pendingCreate=null;createRequestKey=null;$('editWarning').classList.add('hidden');}
+            else showPendingCreateWarning();
+        }
+        applyServerErrors(e);
+        if(e.status===409 && !isCreate) {
+            const message='Конфликт изменений: организация уже изменена другим пользователем. Ваш черновик сохранён. Откройте актуальную карточку и сравните данные; для загрузки новой версии отмените редактирование и откройте его снова.';
+            $('editWarning').textContent=message;
+            $('editWarning').classList.remove('hidden');
+            $('dialogError').textContent=message;
+        } else showError('dialogError', e);
     } finally {
         saveInProgress = false;
         saveButton.disabled = false;
-        saveButton.textContent = previousText;
+        saveButton.textContent = pendingCreate && !$('editId').value ? 'Повторить исходный запрос' : 'Сохранить организацию';
     }
 }
 
-async function removeOrg(id){
+let deleteId=null, deleting=false, deleteGeneration=0;
+const deleteDialog=$('deleteDialog'),nativeDeleteClose=deleteDialog.close.bind(deleteDialog);
+deleteDialog.close=()=>{
+    if(deleting)return;
+    ++deleteGeneration;deleteId=null;nativeDeleteClose();
+};
+deleteDialog.addEventListener('cancel',e=>{e.preventDefault();if(!deleting)deleteDialog.close();});
+function removeOrg(id) {
+    if(deleting)return;
+    ++deleteGeneration;deleteId=id;
+    $('deleteLabel').textContent=`Удалить организацию #${id}? Справочники сохранятся.`;
+    $('deleteError').textContent='';if(!deleteDialog.open)deleteDialog.showModal();
+}
+async function confirmDelete() {
+    if(deleting || deleteId===null)return;
+    const target=deleteId,generation=deleteGeneration;
+    const active=()=>generation===deleteGeneration && deleteId===target && !pageLeaving;
+    deleting=true; $('deleteConfirm').disabled=true;
     try {
-        await request(`${api}/${id}`, {method:'DELETE'});
-        await load(currentPage);
-    } catch(e) {
-        showError('error', e);
-    }
+        await request(`${api}/${target}`,{method:'DELETE'});
+        if(!active())return;
+        ++deleteGeneration;deleteId=null;nativeDeleteClose();
+        $('success').textContent='Организация удалена.'; await load(currentPage);
+    } catch(e) {if(active())showError('deleteError',e);}
+    finally {deleting=false;$('deleteConfirm').disabled=false;}
 }
 
 
@@ -811,30 +888,83 @@ function plainAddress(a) {
 }
 
 function formatAddress(a) {
-    return escapeHtml(plainAddress(a));
+    return `<span title="${escapeHtml(plainAddress(a))}">${escapeHtml(a.town.name)}<span class="cell-secondary">${escapeHtml(a.zipCode || 'Без индекса')} · адрес #${a.id}</span></span>`;
 }
 
 function escapeHtml(v){
     return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
 
-function connectWebSocket() {
-    if (pageLeaving) return;
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
-    organizationSocket = new WebSocket(`${protocol}//${location.host}${base}ws/organizations`);
-    organizationSocket.onmessage = async () => {
-        if (pageLeaving) return;
-        try {
-            await Promise.all([load(currentPage), loadReferences()]);
-        } catch (e) {
-            showError('error', e);
-        }
-    };
-    organizationSocket.onclose = () => {
-        organizationSocket = null;
-        if (!pageLeaving) setTimeout(connectWebSocket, 1500);
-    };
+function connectWebSocket() { Lab.connect(async event => { await Promise.all([load(currentPage), loadReferences()]); await refreshOpenObjects(event); }); }
+
+
+function activateEditor(id) {
+    rememberCreateDraft();
+    closeViewer();
+    const target=$(id);
+    // Close the old dialog before moving the single shared form.
+    if(editor.open)editor.close();
+    if(editor!==target) { target.append(...editor.childNodes); editor=target; }
+    return ++editorGeneration;
+}
+function snapshot() { return JSON.stringify([...$('form').querySelectorAll('input,select')].map(e=>[e.id,e.value])); }
+function closeEditor() {
+    if(saveInProgress)return;
+    if(snapshot()!==formSnapshot && !confirm(pendingCreate && !$('editId').value ? 'Результат создания не подтверждён. Закрыть форму? При следующем создании будет восстановлен исходный запрос и ваш черновик.' : 'Закрыть форму и потерять несохранённые изменения?'))return;
+    rememberCreateDraft();
+    ++editorGeneration;
+    editor.close();
+}
+for(const id of ['creator','editor']) {
+    const dialog=$(id),nativeClose=dialog.close.bind(dialog);
+    dialog.close=()=>{if(editor===dialog){rememberCreateDraft();++editorGeneration;}nativeClose();};
+    dialog.addEventListener('cancel',e=>{e.preventDefault();closeEditor();});
+}
+window.addEventListener('beforeunload',e=>{if(pendingCreate || (editor.open && snapshot()!==formSnapshot)){e.preventDefault();e.returnValue='';}});
+function syncFilterHint() {
+    const type=$('filterField').value==='type';
+    if(type) $('filter').setAttribute('list','typeSuggestions'); else $('filter').removeAttribute('list');
+    $('filter').placeholder=type?'Выберите код типа или его часть…':'Введите часть значения…';
+    $('filterHint').hidden=!type;
+    $('filterHint').textContent=type?'Коды типов: COMMERCIAL — коммерческая · GOVERNMENT — государственная · PRIVATE_LIMITED_COMPANY — ООО. Можно вводить часть кода.':'';
+}
+$('filterField').addEventListener('change',syncFilterHint);
+function resetFilters() { $('filter').value=''; $('filterField').value='name'; $('sortField').value='id'; $('sortDirection').value='asc'; syncFilterHint();load(0).catch(()=>{}); }
+function lookup() { try {const id=Lab.number($('lookupId'),{integer:true,positive:true});viewOrg(id);} catch(e){showError('error',e);} }
+$('filter').addEventListener('keydown',e=>{if(e.key==='Enter')load(0).catch(()=>{});});
+$('lookupId').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lookup();}});
+async function refreshOpenObjects(event) {
+    const tasks=[];
+    if(viewer.open && viewedOrganizationId) tasks.push(viewOrg(viewedOrganizationId,{refresh:true}));
+    if(editor.open && $('editId').value && !saveInProgress) {
+        const generation=editorGeneration, refresh=++editorRefreshGeneration, id=$('editId').value;
+        const active=()=>generation===editorGeneration && refresh===editorRefreshGeneration && editor.open && $('editId').value===id && !pageLeaving;
+        tasks.push((async()=>{
+            try {
+                const latest=await request(`${api}/${id}`);
+                if(!active())return;
+                if(JSON.stringify(latest)!==editOriginal) {
+                    $('editWarning').textContent='Объект изменён другим пользователем. Введённые данные сохранены; перед сохранением проверьте актуальную карточку.';
+                    $('editWarning').classList.remove('hidden');
+                }
+            } catch(e) {
+                if(!active())return;
+                if(e.status!==404)throw e;
+                $('editWarning').textContent='Организация удалена другим пользователем. Изменения сохранить нельзя.';
+                $('editWarning').classList.remove('hidden');
+            }
+        })());
+    }
+    await Promise.all(tasks);
+}
+function applyServerErrors(error) {
+    const map={name:'orgName',annualTurnover:'turnover',employeesCount:'employees',rating:'rating',type:'orgType','coordinates.x':'coordX','coordinates.y':'coordY','coordinates.id':'coordExisting'};
+    for(const prefix of ['official','postal']) {
+        map[prefix+'Address.id']=prefix+'Existing';map[prefix+'Address.zipCode']=prefix+'Zip';
+        for(const field of ['x','y','z','name']) map[prefix+'Address.town.'+field]=prefix+'Town'+field[0].toUpperCase()+field.slice(1);
+        map[prefix+'Address.town.id']=prefix+'TownExisting';
+    }
+    for(const detail of error.details||[]) {const i=detail.indexOf(':');if(map[detail.slice(0,i)])setFieldError(map[detail.slice(0,i)],detail.slice(i+1));}
 }
 
 $('form').addEventListener('submit', save);
@@ -845,7 +975,9 @@ $('form').querySelectorAll('input, select').forEach(el => {
 });
 
 loadReferences().catch(e => showError('error', e));
-load();
+load().catch(()=>{});
+const initialId=new URLSearchParams(location.search).get('id');
+if(initialId && /^[1-9][0-9]*$/.test(initialId)) viewOrg(Number(initialId));
 connectWebSocket();
 </script>
 </body>

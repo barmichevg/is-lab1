@@ -31,8 +31,32 @@ CREATE TABLE IF NOT EXISTS organizations (
     employees_count BIGINT NOT NULL,
     rating INTEGER NOT NULL,
     type VARCHAR(64) NOT NULL,
-    postal_address_id INTEGER NULL REFERENCES addresses(id)
+    postal_address_id INTEGER NULL REFERENCES addresses(id),
+    version BIGINT NOT NULL DEFAULT 1
 );
+
+-- Durable response snapshots. The pending claim and the business operation MUST
+-- share one transaction; a failed request leaves neither a claim nor a mutation.
+-- A stable authenticated username scopes keys across sessions, JVMs and restarts.
+-- No automatic TTL: deleting these rows deliberately ends the replay guarantee.
+CREATE TABLE IF NOT EXISTS api_idempotency (
+    owner_name VARCHAR(64) NOT NULL CHECK (owner_name <> ''),
+    operation VARCHAR(32) NOT NULL CHECK (operation IN ('create', 'merge', 'add-employee')),
+    request_key VARCHAR(256) NOT NULL CHECK (btrim(request_key) <> ''),
+    request_sha256 VARCHAR(64) NOT NULL CHECK (request_sha256 ~ '^[0-9a-f]{64}$'),
+    response_json JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    PRIMARY KEY (owner_name, operation, request_key),
+    CHECK ((response_json IS NULL) = (completed_at IS NULL)),
+    CHECK (response_json IS NULL OR jsonb_typeof(response_json) = 'object')
+);
+
+-- Repeatable optimistic-lock migration, including an earlier nullable version column.
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS version BIGINT DEFAULT 1;
+UPDATE organizations SET version = 1 WHERE version IS NULL;
+ALTER TABLE organizations ALTER COLUMN version SET DEFAULT 1;
+ALTER TABLE organizations ALTER COLUMN version SET NOT NULL;
 
 -- Bring tables created by an earlier EclipseLink MVP to the same constraints.
 ALTER TABLE coordinates ALTER COLUMN x SET NOT NULL;
@@ -88,6 +112,27 @@ BEGIN
     END IF;
 END $$;
 
+-- Shared/exclusive domain write protocol. MUST precede domain entity reads/DML.
+-- An independent idempotency claim may come first (claim -> domain guard -> rows).
+-- Never acquire an idempotency claim after domain locks. Never upgrade a shared
+-- lock to exclusive. The second key isolates different students' schemas in studs.
+-- Transaction locks release automatically on commit/rollback; no extra privileges
+-- or schemas are required. Direct SQL writers must follow the same protocol.
+CREATE OR REPLACE FUNCTION lab1_lock_writes(p_exclusive BOOLEAN)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+VOLATILE
+AS $$
+BEGIN
+    IF p_exclusive THEN
+        PERFORM pg_advisory_xact_lock(1364, hashtext(current_schema()));
+    ELSE
+        PERFORM pg_advisory_xact_lock_shared(1364, hashtext(current_schema()));
+    END IF;
+    RETURN TRUE;
+END;
+$$;
+
 -- 1. Return one arbitrary organization whose employeesCount is minimal.
 CREATE OR REPLACE FUNCTION lab1_organization_with_min_employees()
 RETURNS SETOF organizations
@@ -108,7 +153,7 @@ STABLE
 AS $$
     SELECT o.*
     FROM organizations o
-    WHERE o.name LIKE COALESCE(p_prefix, '') || '%'
+    WHERE o.name LIKE replace(replace(replace(COALESCE(p_prefix, ''), '!', '!!'), '%', '!%'), '_', '!_') || '%' ESCAPE '!'
     ORDER BY o.id;
 $$;
 
@@ -147,7 +192,8 @@ END;
 $$;
 
 -- 4. Merge two organizations by creating a NEW organization.
--- The source organizations remain unchanged.
+-- The new organization REPLACES both source organizations atomically.
+-- Their auxiliary objects remain available for reuse; they are not cascade-deleted.
 -- Required by the assignment: employees are summed, name/address are supplied by the user.
 -- For the remaining mandatory fields we use deterministic merger semantics:
 --   coordinates = first organization;
@@ -182,45 +228,70 @@ DECLARE
     v_first_rank INTEGER;
     v_second_rank INTEGER;
     v_result_type TEXT;
+    v_employees BIGINT;
+    v_turnover REAL;
 BEGIN
-    IF p_first_id IS NULL OR p_second_id IS NULL THEN
-        RAISE EXCEPTION 'Both source organization ids are required';
+    -- Also protect direct function calls, not only CDI callers. Reentrant exclusive
+    -- acquisition is safe; callers must not already hold a shared mutation lock.
+    PERFORM lab1_lock_writes(TRUE);
+    IF p_first_id IS NULL OR p_second_id IS NULL OR p_first_id <= 0 OR p_second_id <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1007', MESSAGE = 'Both source organization ids must be positive';
     END IF;
     IF p_first_id = p_second_id THEN
-        RAISE EXCEPTION 'Source organizations must be different';
+        RAISE EXCEPTION USING ERRCODE = 'P1007', MESSAGE = 'Source organizations must be different';
     END IF;
     IF p_new_name IS NULL OR btrim(p_new_name) = '' THEN
-        RAISE EXCEPTION 'New organization name must not be blank';
+        RAISE EXCEPTION USING ERRCODE = 'P1007', MESSAGE = 'New organization name must not be blank';
     END IF;
+
+    -- Lock BOTH sources in a stable order before reading either value. This also
+    -- protects against direct row updates which do not use the advisory protocol.
+    PERFORM id FROM organizations
+    WHERE id IN (p_first_id, p_second_id) ORDER BY id FOR UPDATE;
 
     SELECT * INTO v_first FROM organizations WHERE id = p_first_id;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Organization with id=% not found', p_first_id;
+        RAISE EXCEPTION USING ERRCODE = 'P1005', MESSAGE = 'Source organization no longer exists';
     END IF;
 
     SELECT * INTO v_second FROM organizations WHERE id = p_second_id;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Organization with id=% not found', p_second_id;
+        RAISE EXCEPTION USING ERRCODE = 'P1005', MESSAGE = 'Source organization no longer exists';
+    END IF;
+
+    -- Validate arithmetic before creating auxiliary rows. Custom SQLSTATEs are
+    -- mapped to fixed public messages; SQL text/detail is never sent to clients.
+    IF v_first.employees_count > 9223372036854775807::bigint - v_second.employees_count THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1002', MESSAGE = 'Merged employees count exceeds bigint';
+    END IF;
+    v_employees := v_first.employees_count + v_second.employees_count;
+    BEGIN
+        v_turnover := v_first.annual_turnover + v_second.annual_turnover;
+    EXCEPTION WHEN numeric_value_out_of_range THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1003', MESSAGE = 'Merged annual turnover exceeds real';
+    END;
+    IF NOT (v_turnover > 0 AND v_turnover < 'Infinity'::real) THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1003', MESSAGE = 'Merged annual turnover exceeds real';
     END IF;
 
     IF p_existing_address_id IS NOT NULL THEN
         SELECT id INTO v_address_id FROM addresses WHERE id = p_existing_address_id;
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'Address with id=% not found', p_existing_address_id;
+            RAISE EXCEPTION USING ERRCODE = 'P1006', MESSAGE = 'Selected address no longer exists';
         END IF;
     ELSE
         IF p_zip_code IS NULL THEN
-            RAISE EXCEPTION 'zipCode is required for a new address';
+            RAISE EXCEPTION USING ERRCODE = 'P1007', MESSAGE = 'zipCode is required for a new address';
         END IF;
 
         IF p_existing_town_id IS NOT NULL THEN
             SELECT id INTO v_town_id FROM locations WHERE id = p_existing_town_id;
             IF NOT FOUND THEN
-                RAISE EXCEPTION 'Location with id=% not found', p_existing_town_id;
+                RAISE EXCEPTION USING ERRCODE = 'P1006', MESSAGE = 'Selected location no longer exists';
             END IF;
         ELSE
             IF p_town_x IS NULL OR p_town_y IS NULL OR p_town_z IS NULL OR p_town_name IS NULL OR btrim(p_town_name) = '' THEN
-                RAISE EXCEPTION 'All Location fields are required for a new town';
+                RAISE EXCEPTION USING ERRCODE = 'P1007', MESSAGE = 'All Location fields are required for a new town';
             END IF;
 
             INSERT INTO locations(x, y, z, name)
@@ -251,12 +322,16 @@ BEGIN
         v_first.coordinates_id,
         CURRENT_TIMESTAMP,
         v_address_id,
-        v_first.annual_turnover + v_second.annual_turnover,
-        v_first.employees_count + v_second.employees_count,
+        v_turnover,
+        v_employees,
         GREATEST(v_first.rating, v_second.rating),
         v_result_type,
         NULL
     ) RETURNING id INTO v_new_id;
+
+    -- Insert first, delete only after every validation succeeds. Any later error
+    -- rolls back the entire function (including the new address/location).
+    DELETE FROM organizations WHERE id IN (p_first_id, p_second_id);
 
     RETURN v_new_id;
 END;
@@ -269,17 +344,36 @@ LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-    v_id INTEGER;
+    v_organization organizations%ROWTYPE;
 BEGIN
-    UPDATE organizations
-    SET employees_count = employees_count + 1
-    WHERE id = p_organization_id
-    RETURNING id INTO v_id;
-
-    IF v_id IS NULL THEN
-        RAISE EXCEPTION 'Organization with id=% not found', p_organization_id;
+    PERFORM lab1_lock_writes(FALSE);
+    SELECT * INTO v_organization FROM organizations
+    WHERE id = p_organization_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1005', MESSAGE = 'Organization no longer exists';
+    END IF;
+    IF v_organization.employees_count = 9223372036854775807::bigint THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1001', MESSAGE = 'Cannot add an employee: bigint limit reached';
+    END IF;
+    IF v_organization.version = 9223372036854775807::bigint THEN
+        RAISE EXCEPTION USING ERRCODE = 'P1004', MESSAGE = 'Organization version limit reached';
     END IF;
 
-    RETURN v_id;
+    UPDATE organizations
+    SET employees_count = employees_count + 1,
+        version = version + 1
+    WHERE id = p_organization_id;
+
+    RETURN p_organization_id;
 END;
 $$;
+
+-- Reject NaN and infinities even in direct SQL and special operations.
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_turnover_finite' AND conrelid='organizations'::regclass) THEN
+  ALTER TABLE organizations ADD CONSTRAINT ck_turnover_finite CHECK (annual_turnover < 'Infinity'::real);
+ END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_location_finite' AND conrelid='locations'::regclass) THEN
+  ALTER TABLE locations ADD CONSTRAINT ck_location_finite CHECK (x > '-Infinity'::float8 AND x < 'Infinity'::float8 AND y > '-Infinity'::float8 AND y < 'Infinity'::float8);
+ END IF;
+END $$;

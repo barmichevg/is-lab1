@@ -7,14 +7,20 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "organizations")
+@Cacheable(false) // Native operations also mutate organizations; always read the committed row.
 public class Organization {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Positive
     private Integer id;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     @NotBlank
     @Column(nullable = false)
@@ -63,11 +69,14 @@ public class Organization {
 
     @PrePersist
     public void prePersist() {
-        if (creationDate == null) {
-            creationDate = LocalDateTime.now();
-        }
+        // PostgreSQL TIMESTAMP stores microseconds. Normalize before INSERT so
+        // the creation response and subsequent GET expose the same value, including
+        // when another server component supplied a date before persistence.
+        creationDate = (creationDate == null ? LocalDateTime.now() : creationDate)
+                .truncatedTo(ChronoUnit.MICROS);
     }
 
+    public long getVersion() { return version; }
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
     public String getName() { return name; }

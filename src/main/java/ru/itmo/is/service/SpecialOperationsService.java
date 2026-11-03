@@ -32,6 +32,9 @@ public class SpecialOperationsService {
     @Inject
     OrganizationChangeNotifier notifier;
 
+    @Inject
+    ru.itmo.is.repository.MutationLock mutationLock;
+
     public OrganizationResponseDto findWithMinEmployees() {
         List<Organization> organizations = repository.findWithMinEmployees();
         if (organizations.isEmpty()) {
@@ -63,6 +66,8 @@ public class SpecialOperationsService {
 
     @Transactional
     public OrganizationResponseDto merge(MergeOrganizationsRequestDto input) {
+        // Merge replaces two rows; exclude every writer before validating/loading them.
+        mutationLock.exclusive();
         validateMerge(input);
 
         AddressInputDto address = input.getOfficialAddress();
@@ -85,12 +90,14 @@ public class SpecialOperationsService {
         organizationRepository.clear();
         Organization created = requireOrganization(newId);
         OrganizationResponseDto resultDto = mapper.toDto(created);
-        notifier.afterCommit("CREATED", newId);
+        // One invalidation covers creation AND disappearance of both sources.
+        notifier.afterCommit("REFRESH", newId);
         return resultDto;
     }
 
     @Transactional
     public OrganizationResponseDto addEmployee(int organizationId) {
+        mutationLock.shared();
         if (organizationId <= 0) {
             throw new ApiValidationException(List.of("organizationId: must be greater than 0"));
         }

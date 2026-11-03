@@ -29,6 +29,9 @@ public class ReferenceDataService {
     @Inject
     OrganizationChangeNotifier notifier;
 
+    @Inject
+    ru.itmo.is.repository.MutationLock mutationLock;
+
     public List<CoordinatesDto> coordinates() {
         return repository.findAllCoordinates().stream().map(mapper::toDto).toList();
     }
@@ -64,6 +67,7 @@ public class ReferenceDataService {
 
     @Transactional
     public void deleteCoordinates(int id, Integer replacementId) {
+        mutationLock.exclusive();
         Coordinates source = requireCoordinates(id);
         long references = repository.countOrganizationsUsingCoordinates(source);
 
@@ -82,6 +86,7 @@ public class ReferenceDataService {
 
     @Transactional
     public void deleteAddress(int id, Integer replacementId) {
+        mutationLock.exclusive();
         Address source = requireAddress(id);
         long officialReferences = repository.countOfficialAddressReferences(source);
         long postalReferences = repository.countPostalAddressReferences(source);
@@ -101,6 +106,7 @@ public class ReferenceDataService {
 
     @Transactional
     public void deleteLocation(int id, Integer replacementId) {
+        mutationLock.exclusive();
         Location source = requireLocation(id);
         long references = repository.countAddressesUsingLocation(source);
 

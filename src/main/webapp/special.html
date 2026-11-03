@@ -3,341 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Специальные операции — ЛР1 v0.5.1</title>
-    <style>
-        :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#171717; }
-        body { max-width:1200px; margin:26px auto; padding:0 16px 40px; }
-        nav { display:flex; gap:8px; margin:14px 0 22px; }
-        nav a { padding:8px 12px; border:1px solid #bbb; border-radius:6px; text-decoration:none; color:#171717; }
-        nav a.active { background:#171717; color:white; border-color:#171717; }
-        .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-        .card { border:1px solid #ddd; border-radius:8px; padding:16px; }
-        .card.wide { grid-column:1/-1; }
-        .fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
-        .full { grid-column:1/-1; }
-        label { display:flex; flex-direction:column; gap:5px; }
-        input, select, button { padding:8px 10px; font:inherit; }
-        button { cursor:pointer; }
-        table { width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; }
-        th, td { border:1px solid #ddd; padding:7px; text-align:left; vertical-align:top; }
-        th { background:#f5f5f5; }
-        .error { color:#b00020; white-space:pre-wrap; margin:10px 0; }
-        .success { color:#087b35; white-space:pre-wrap; margin:10px 0; }
-        .hidden { display:none !important; }
-        @media(max-width:800px) { .grid,.fields { grid-template-columns:1fr; } .card.wide,.full { grid-column:1; } }
-    </style>
+    <title>Операции — Реестр</title>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
-<h1>Специальные операции</h1>
-<nav>
-    <a href="index.html">Организации</a>
-    <a href="special.html" class="active">Специальные операции</a>
-    <a href="references.html">Справочники</a>
-</nav>
-
-<div id="globalError" class="error"></div>
+<a class="skip-link" href="#main">К содержимому</a>
+<header class="app-header">
+    <a class="brand" href="index.html">Информационные системы · Лабораторная работа № 1</a>
+    <nav aria-label="Основная навигация">
+        <a href="index.html">Организации</a>
+        <a href="special.html" class="active" aria-current="page">Операции</a>
+        <a href="references.html">Справочники</a>
+    </nav>
+    <div class="session-tools"><span id="sessionUser" class="session-user"></span></div>
+</header>
+<main id="main" class="workspace">
+<section class="page-heading">
+    <h1>Операции</h1>
+    <div id="connectionSlot"></div>
+</section>
+<div id="globalError" class="error" role="alert"></div>
 <div class="grid">
     <section class="card">
-        <h2>Минимум employeesCount</h2>
-        <button type="button" onclick="minEmployees()">Выполнить</button>
+        <h2>Минимум сотрудников</h2>
+        <button type="button" class="primary" onclick="minEmployees()">Найти организацию</button>
     </section>
 
     <section class="card">
-        <h2>Name начинается с...</h2>
-        <label>Подстрока
-            <input id="prefix" placeholder="Например: ITMO">
+        <h2>Поиск по началу названия</h2>
+        <label>Начало названия
+            <input id="prefix" placeholder="Например: ИТМО">
         </label>
-        <div style="margin-top:12px"><button type="button" onclick="nameStartsWith()">Выполнить</button></div>
+        <div class="card-actions"><button type="button" class="primary" onclick="nameStartsWith()">Найти организации</button></div>
     </section>
 
     <section class="card">
-        <h2>Type больше заданного</h2>
-        <label>Тип
+        <h2>Поиск по типу выше заданного</h2>
+        <label>Тип организации
             <select id="typeValue">
-                <option>COMMERCIAL</option>
-                <option>GOVERNMENT</option>
-                <option>PRIVATE_LIMITED_COMPANY</option>
+                <option value="COMMERCIAL">Коммерческая</option>
+                <option value="GOVERNMENT">Государственная</option>
+                <option value="PRIVATE_LIMITED_COMPANY">ООО</option>
             </select>
         </label>
-        <div style="margin-top:12px"><button type="button" onclick="typeGreaterThan()">Выполнить</button></div>
+        <div class="card-actions"><button type="button" class="primary" onclick="typeGreaterThan()">Показать организации</button></div>
     </section>
 
     <section class="card">
-        <h2>Добавить сотрудника</h2>
+        <h2>Добавление сотрудника</h2>
         <label>Организация
             <select id="employeeOrg"></select>
         </label>
-        <div style="margin-top:12px"><button type="button" onclick="addEmployee()">employeesCount + 1</button></div>
+        <div class="card-actions"><button type="button" class="primary" onclick="addEmployee()">Добавить сотрудника</button></div>
     </section>
 
     <section class="card wide">
-        <h2>Объединить две организации</h2>
+        <h2>Объединение организаций</h2>
         <div class="fields">
+            <h3 class="full">Исходные организации</h3>
             <label>Первая организация <select id="mergeFirst"></select></label>
             <label>Вторая организация <select id="mergeSecond"></select></label>
-            <label class="full">Имя новой организации <input id="mergeName"></label>
-            <label class="full">Адрес
+            <label class="full">Название новой организации <input id="mergeName" placeholder="Название после объединения"></label>
+        </div>
+        <div class="fields">
+            <h3 class="full">Официальный адрес</h3>
+            <label class="full">Источник адреса
                 <select id="mergeAddressMode" onchange="syncAddressMode()">
-                    <option value="existing">Использовать существующий Address</option>
-                    <option value="new">Создать новый Address</option>
+                    <option value="existing">Выбрать существующий адрес</option>
+                    <option value="new">Создать новый адрес</option>
                 </select>
             </label>
         </div>
 
         <div id="existingAddressBlock" class="fields">
-            <label class="full">Existing Address <select id="mergeExistingAddress"></select></label>
+            <label class="full">Адрес из справочника <select id="mergeExistingAddress"></select></label>
         </div>
 
         <div id="newAddressBlock" class="fields hidden">
-            <label class="full">Zip code <input id="mergeZip"></label>
-            <label class="full">Town
+            <label class="full">Почтовый индекс <input id="mergeZip" placeholder="Можно оставить пустым"></label>
+            <label class="full">Город
                 <select id="mergeTownMode" onchange="syncTownMode()">
-                    <option value="existing">Использовать существующий Location</option>
-                    <option value="new">Создать новый Location</option>
+                    <option value="existing">Выбрать существующий город</option>
+                    <option value="new">Создать новый город</option>
                 </select>
             </label>
             <div id="existingTownBlock" class="full">
-                <label>Existing Location <select id="mergeExistingTown"></select></label>
+                <label>Город из справочника <select id="mergeExistingTown"></select></label>
             </div>
             <div id="newTownBlock" class="fields full hidden">
-                <label>Name <input id="mergeTownName"></label>
-                <label>X <input id="mergeTownX" type="number" step="any"></label>
-                <label>Y <input id="mergeTownY" type="number" step="any"></label>
-                <label>Z <input id="mergeTownZ" type="number" step="1"></label>
+                <label>Название города <input id="mergeTownName"></label>
+                <label>Координата X <input id="mergeTownX" type="number" step="any"></label>
+                <label>Координата Y <input id="mergeTownY" type="number" step="any"></label>
+                <label>Координата Z <input id="mergeTownZ" type="number" step="1"></label>
             </div>
         </div>
-        <button type="button" onclick="mergeOrganizations()">Объединить</button>
+        <div class="card-actions"><button type="button" class="primary" onclick="mergeOrganizations()">Объединить организации</button></div>
     </section>
 </div>
+</main>
 
-<h2>Результат</h2>
-<div id="message" class="success"></div>
-<div id="result"></div>
-
+<script src="app.js"></script>
 <script>
-const specialApi = 'api/special-operations';
-const organizationsApi = 'api/organizations';
-const refApi = 'api/reference';
-const $ = id => document.getElementById(id);
-let organizations = [];
-let refs = {addresses:[], locations:[]};
-let pageLeaving = false;
-let organizationSocket = null;
-
-function beginPageLeave() {
-    if (pageLeaving) return;
-    pageLeaving = true;
-    if (organizationSocket) {
-        organizationSocket.onclose = null;
-        try { organizationSocket.close(); } catch (_) {}
-        organizationSocket = null;
+const specialApi='api/special-operations', organizationsApi='api/organizations', refApi='api/reference';
+const $=id=>document.getElementById(id);
+let organizations=[],refs={addresses:[],locations:[]},dataVersion=0;
+const cards=[...document.querySelectorAll('.card')];
+const states=cards.map(card=>{
+    const message=document.createElement('div'),result=document.createElement('div');
+    message.setAttribute('role','status'); result.className='operation-result';
+    card.append(message,result);
+    return {card,message,result,busy:false,query:null,ids:null,key:null,body:null,dirty:false,generation:0,refreshing:null};
+});
+const request=Lab.request;
+function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function orgLabel(o){return `#${o.id}: ${o.name} — сотрудников: ${Lab.formatNumber(o.employeesCount)}`;}
+function addressLabel(a){return `#${a.id}: ${a.zipCode} → ${a.town.name}`;}
+function locationLabel(l){return `#${l.id}: ${l.name} (${l.x}, ${l.y}, ${l.z})`;}
+async function loadAllOrganizations(){
+    // One compact server snapshot: offset pages from different snapshots can skip live IDs.
+    return request(`${organizationsApi}/options`);
+}
+async function loadData(){
+    const version=++dataVersion;
+    const [org,addresses,locations]=await Promise.all([loadAllOrganizations(),request(`${refApi}/addresses`),request(`${refApi}/locations`)]);
+    if(version!==dataVersion)return;
+    organizations=org;refs={addresses,locations};
+    for(const id of ['mergeFirst','mergeSecond','employeeOrg']) fillSelect(id,organizations,orgLabel);
+    fillSelect('mergeExistingAddress',addresses,addressLabel);fillSelect('mergeExistingTown',locations,locationLabel);
+    await refreshResults();
+}
+function fillSelect(id,items,label){Lab.fillSelect($(id),items,label,message=>{
+    const state=states[id==='employeeOrg'?3:4];state.message.className='error';state.message.textContent=message;
+});}
+function syncAddressMode(){const isNew=$('mergeAddressMode').value==='new';$('existingAddressBlock').classList.toggle('hidden',isNew);$('newAddressBlock').classList.toggle('hidden',!isNew);syncTownMode();}
+function syncTownMode(){const isNew=$('mergeTownMode').value==='new';$('existingTownBlock').classList.toggle('hidden',isNew);$('newTownBlock').classList.toggle('hidden',!isNew);}
+function checked(id,options){const input=$(id);try{const result=Lab.number(input,options);Lab.fieldError(input,'');return result;}catch(e){Lab.fieldError(input,e.message);throw e;}}
+function selected(id){return checked(id,{integer:true,positive:true});}
+function textValue(id,blank=false){const input=$(id),value=input.value.trim();if((!blank&&!value)||value.length>255){Lab.fieldError(input,'Введите строку до 255 символов.');throw new Error('Проверьте выделенные поля.');}Lab.fieldError(input,'');return value;}
+function mergeAddressPayload(){
+    if($('mergeAddressMode').value==='existing')return {id:selected('mergeExistingAddress')};
+    const town=$('mergeTownMode').value==='existing'?{id:selected('mergeExistingTown')}:{name:textValue('mergeTownName'),x:checked('mergeTownX'),y:checked('mergeTownY'),z:checked('mergeTownZ',{integer:true})};
+    return {zipCode:textValue('mergeZip',true),town};
+}
+async function run(index,prepare,mutating=false){
+    const state=states[index];if(state.busy)return;
+    state.busy=true;state.dirty=true;++state.generation;
+    state.card.querySelectorAll('button').forEach(b=>b.disabled=true);
+    state.message.className='';state.message.textContent='Выполняется…';
+    try{
+        const {url,body}=prepare();
+        let options={};
+        if(mutating){
+            const fingerprint=url+'|'+(body||'');
+            if(state.body!==fingerprint){state.body=fingerprint;state.key=crypto.randomUUID();}
+            options={method:'POST',headers:{'X-Idempotency-Key':state.key},...(body?{body}:{})};
+        }
+        const result=await request(url,options);
+        state.query=mutating?null:url;state.ids=mutating?[result.id]:null;
+        renderResult(state,Array.isArray(result)?result:[result]);
+        state.message.className=mutating?'success':'';state.message.textContent=mutating?'Операция выполнена.':'';
+        if(mutating){
+            state.body=null;
+            // These selections disappear by design, not because of another user's
+            // unexpected deletion. Clear them before the refreshed list is filled.
+            if(index===4){$('mergeFirst').value='';$('mergeSecond').value='';}
+            await loadData();
+            state.message.className='success';
+            state.message.textContent=index===4?`Исходные организации заменены новой #${result.id}.`:'Операция выполнена.';
+        }
+    }catch(e){state.message.className='error';state.message.textContent=e.message;applyErrors(index,e);}
+    finally{
+        // Keep the guard through the second click of a fast double click.
+        setTimeout(()=>{
+            state.busy=false;state.card.querySelectorAll('button').forEach(b=>b.disabled=false);
+            refreshState(state).catch(e=>$('globalError').textContent=e.message);
+        },400);
     }
 }
-
-function showError(targetId, error) {
-    if (pageLeaving || error?.name === 'AbortError') return;
-    $(targetId).textContent = error?.message || String(error);
+function minEmployees(){return run(0,()=>({url:`${specialApi}/min-employees`}));}
+function nameStartsWith(){return run(1,()=>({url:`${specialApi}/name-starts-with?prefix=${encodeURIComponent($('prefix').value)}`}));}
+function typeGreaterThan(){return run(2,()=>({url:`${specialApi}/type-greater-than?type=${encodeURIComponent($('typeValue').value)}`}));}
+function addEmployee(){return run(3,()=>({url:`${specialApi}/${selected('employeeOrg')}/add-employee`}),true);}
+function mergeOrganizations(){return run(4,()=>{
+    const first=selected('mergeFirst'),second=selected('mergeSecond');
+    if(first===second){Lab.fieldError($('mergeSecond'),'Выберите другую организацию.');throw new Error('Организации должны различаться.');}
+    return {url:`${specialApi}/merge`,body:JSON.stringify({firstOrganizationId:first,secondOrganizationId:second,name:textValue('mergeName'),officialAddress:mergeAddressPayload()})};
+},true);}
+async function refreshResults(){
+    await Promise.all(states.map(state=>{
+        state.dirty=true;++state.generation;
+        return refreshState(state);
+    }));
 }
-
-document.querySelectorAll('nav a').forEach(link => link.addEventListener('click', beginPageLeave));
-window.addEventListener('pagehide', beginPageLeave);
-
-async function request(url, options={}) {
-    const headers = options.body ? {'Content-Type':'application/json'} : {};
-    const response = await fetch(url, {...options, headers:{...headers, ...(options.headers || {})}});
-    if (!response.ok) {
-        let body = null;
-        try { body = await response.json(); } catch (_) {}
-        const details = Array.isArray(body?.details) ? '\n' + body.details.join('\n') : '';
-        throw new Error((body?.error || `${response.status} ${response.statusText}`) + details);
+function refreshState(state){
+    if(state.refreshing)return state.refreshing;
+    if(state.busy || !state.dirty || (!state.query&&!state.ids))return Promise.resolve();
+    state.refreshing=(async()=>{
+        while(state.dirty && !state.busy && (state.query||state.ids)){
+            state.dirty=false;
+            const generation=state.generation;
+            try{
+                let items;
+                if(state.query){const data=await request(state.query);items=Array.isArray(data)?data:[data];}
+                else items=await Promise.all(state.ids.map(id=>request(`${organizationsApi}/${id}`)));
+                if(generation!==state.generation || state.busy)continue;
+                renderResult(state,items);
+            }catch(e){
+                if(generation!==state.generation || state.busy)continue;
+                if(e.status===404){renderResult(state,[]);state.message.className='';state.message.textContent='Объект удалён или результат пуст.';}
+                else {state.message.className='error';state.message.textContent='Не удалось обновить результат: '+e.message;throw e;}
+            }
+        }
+    })().finally(()=>{state.refreshing=null;});
+    return state.refreshing;
+}
+function renderResult(state,items){
+    if(!items.length){state.result.innerHTML='<p class="empty">Результат пуст.</p>';return;}
+    const title='Результат: '+state.card.querySelector('h2').textContent;
+    const region=document.createElement('div');region.className='table-wrap';region.setAttribute('role','region');region.setAttribute('aria-label',title);region.tabIndex=0;
+    const table=document.createElement('table');table.title=title;table.createCaption().textContent=title;
+    const header=table.createTHead().insertRow();
+    for(const label of ['ID','Название','Сотрудники','Годовой оборот','Рейтинг','Тип','Официальный адрес']){
+        const th=document.createElement('th');th.scope='col';th.textContent=label;header.append(th);
     }
-    if (response.status === 204) return null;
-    return response.json();
-}
-
-async function loadAllOrganizations() {
-    const first = await request(`${organizationsApi}?page=0&size=100`);
-    let items = [...first.items];
-    const pages = Math.ceil(first.total / 100);
-    for (let page = 1; page < pages; page++) {
-        const next = await request(`${organizationsApi}?page=${page}&size=100`);
-        items.push(...next.items);
+    const body=table.createTBody();
+    for(const o of items){
+        const row=body.insertRow(),link=document.createElement('a');link.href='index.html?id='+encodeURIComponent(o.id);link.textContent=String(o.id);row.insertCell().append(link);
+        for(const value of [o.name,Lab.formatNumber(o.employeesCount),Lab.formatNumber(o.annualTurnover),o.rating,Lab.typeLabel(o.type),addressLabel(o.officialAddress)])row.insertCell().textContent=String(value??'');
     }
-    return items;
+    region.append(table);state.result.replaceChildren(region);
 }
-
-async function loadData() {
-    try {
-        [organizations, refs.addresses, refs.locations] = await Promise.all([
-            loadAllOrganizations(),
-            request(`${refApi}/addresses`),
-            request(`${refApi}/locations`)
-        ]);
-        fillSelect('mergeFirst', organizations, orgLabel);
-        fillSelect('mergeSecond', organizations, orgLabel);
-        fillSelect('employeeOrg', organizations, orgLabel);
-        fillSelect('mergeExistingAddress', refs.addresses, addressLabel);
-        fillSelect('mergeExistingTown', refs.locations, locationLabel);
-        if (organizations.length > 1) $('mergeSecond').selectedIndex = 1;
-        syncAddressMode();
-    } catch (e) {
-        showError('globalError', e);
-    }
+function applyErrors(index,error){
+    const map={name:'mergeName',firstOrganizationId:'mergeFirst',secondOrganizationId:'mergeSecond','officialAddress.id':'mergeExistingAddress','officialAddress.zipCode':'mergeZip','officialAddress.town.id':'mergeExistingTown','officialAddress.town.name':'mergeTownName','officialAddress.town.x':'mergeTownX','officialAddress.town.y':'mergeTownY','officialAddress.town.z':'mergeTownZ'};
+    if(index===4)for(const detail of error.details||[]){const i=detail.indexOf(':');if(map[detail.slice(0,i)])Lab.fieldError($(map[detail.slice(0,i)]),detail.slice(i+1));}
 }
-
-function fillSelect(id, items, labelFn) {
-    const select = $(id);
-    select.innerHTML = items.length
-        ? items.map(item => `<option value="${item.id}">${escapeHtml(labelFn(item))}</option>`).join('')
-        : '<option value="">Нет объектов</option>';
-}
-
-function orgLabel(o) { return `#${o.id}: ${o.name} — employees=${o.employeesCount}, type=${o.type}`; }
-function addressLabel(a) { return `#${a.id}: ${a.zipCode} → ${a.town.name}`; }
-function locationLabel(l) { return `#${l.id}: ${l.name} (${l.x}, ${l.y}, ${l.z})`; }
-
-function syncAddressMode() {
-    const isNew = $('mergeAddressMode').value === 'new';
-    $('existingAddressBlock').classList.toggle('hidden', isNew);
-    $('newAddressBlock').classList.toggle('hidden', !isNew);
-    if (isNew) syncTownMode();
-}
-
-function syncTownMode() {
-    const isNew = $('mergeTownMode').value === 'new';
-    $('existingTownBlock').classList.toggle('hidden', isNew);
-    $('newTownBlock').classList.toggle('hidden', !isNew);
-}
-
-async function run(action) {
-    $('globalError').textContent = '';
-    $('message').textContent = '';
-    try {
-        const data = await action();
-        renderResult(Array.isArray(data) ? data : [data]);
-        return data;
-    } catch (e) {
-        showError('globalError', e);
-        throw e;
-    }
-}
-
-function minEmployees() {
-    return run(() => request(`${specialApi}/min-employees`)).catch(()=>{});
-}
-
-function nameStartsWith() {
-    const prefix = encodeURIComponent($('prefix').value);
-    return run(() => request(`${specialApi}/name-starts-with?prefix=${prefix}`)).catch(()=>{});
-}
-
-function typeGreaterThan() {
-    const type = encodeURIComponent($('typeValue').value);
-    return run(() => request(`${specialApi}/type-greater-than?type=${type}`)).catch(()=>{});
-}
-
-async function addEmployee() {
-    const id = Number($('employeeOrg').value);
-    if (!id) { $('globalError').textContent = 'Выберите организацию'; return; }
-    try {
-        const data = await run(() => request(`${specialApi}/${id}/add-employee`, {method:'POST'}));
-        $('message').textContent = `Для Organization #${id} добавлен один сотрудник.`;
-        await refreshOrganizations();
-        return data;
-    } catch (_) {}
-}
-
-function mergeAddressPayload() {
-    if ($('mergeAddressMode').value === 'existing') {
-        const id = Number($('mergeExistingAddress').value);
-        if (!id) throw new Error('Выберите Address');
-        return {id};
-    }
-    const zipCode = $('mergeZip').value;
-    let town;
-    if ($('mergeTownMode').value === 'existing') {
-        const id = Number($('mergeExistingTown').value);
-        if (!id) throw new Error('Выберите Location');
-        town = {id};
-    } else {
-        town = {
-            name: $('mergeTownName').value.trim(),
-            x: numberValue('mergeTownX'),
-            y: numberValue('mergeTownY'),
-            z: numberValue('mergeTownZ')
-        };
-    }
-    return {zipCode, town};
-}
-
-async function mergeOrganizations() {
-    $('globalError').textContent = '';
-    try {
-        const body = {
-            firstOrganizationId: Number($('mergeFirst').value),
-            secondOrganizationId: Number($('mergeSecond').value),
-            name: $('mergeName').value.trim(),
-            officialAddress: mergeAddressPayload()
-        };
-        const data = await run(() => request(`${specialApi}/merge`, {method:'POST', body:JSON.stringify(body)}));
-        $('message').textContent = `Создана объединённая организация #${data.id}.`;
-        await Promise.all([refreshOrganizations(), refreshReferences()]);
-    } catch (e) {
-        showError('globalError', e);
-    }
-}
-
-async function refreshOrganizations() {
-    organizations = await loadAllOrganizations();
-    const selectedEmployee = $('employeeOrg').value;
-    fillSelect('mergeFirst', organizations, orgLabel);
-    fillSelect('mergeSecond', organizations, orgLabel);
-    fillSelect('employeeOrg', organizations, orgLabel);
-    if ([...$('employeeOrg').options].some(o => o.value === selectedEmployee)) $('employeeOrg').value = selectedEmployee;
-}
-
-async function refreshReferences() {
-    [refs.addresses, refs.locations] = await Promise.all([
-        request(`${refApi}/addresses`), request(`${refApi}/locations`)
-    ]);
-    fillSelect('mergeExistingAddress', refs.addresses, addressLabel);
-    fillSelect('mergeExistingTown', refs.locations, locationLabel);
-}
-
-function renderResult(items) {
-    items = items.filter(Boolean);
-    if (!items.length) {
-        $('result').innerHTML = '<p class="muted">Результат пуст.</p>';
-        return;
-    }
-    $('result').innerHTML = `<table><thead><tr>
-        <th>ID</th><th>Name</th><th>Employees</th><th>Turnover</th><th>Rating</th><th>Type</th><th>Official address</th>
-        </tr></thead><tbody>${items.map(o => `<tr>
-        <td>${o.id}</td><td>${escapeHtml(o.name)}</td><td>${o.employeesCount}</td><td>${o.annualTurnover}</td>
-        <td>${o.rating}</td><td>${escapeHtml(o.type)}</td><td>${escapeHtml(addressLabel(o.officialAddress))}</td>
-        </tr>`).join('')}</tbody></table>`;
-}
-
-function numberValue(id) {
-    const value = $(id).value;
-    return value === '' ? null : Number(value);
-}
-function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-
-function connectWebSocket() {
-    if (pageLeaving) return;
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
-    organizationSocket = new WebSocket(`${protocol}//${location.host}${base}ws/organizations`);
-    organizationSocket.onmessage = () => { if (!pageLeaving) loadData(); };
-    organizationSocket.onclose = () => {
-        organizationSocket = null;
-        if (!pageLeaving) setTimeout(connectWebSocket, 1500);
-    };
-}
-
-loadData();
-connectWebSocket();
-</script>
-</body>
-</html>
+cards.forEach(card=>card.querySelectorAll('input,select').forEach(input=>input.addEventListener('input',()=>Lab.fieldError(input,''))));
+loadData().catch(e=>$('globalError').textContent=e.message);
+Lab.connect(loadData);
+</script></body></html>

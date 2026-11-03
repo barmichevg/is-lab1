@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
+import ru.itmo.is.dto.OrganizationOptionDto;
 import ru.itmo.is.exception.ApiValidationException;
 import ru.itmo.is.model.Organization;
 import ru.itmo.is.model.OrganizationType;
@@ -43,6 +44,29 @@ public class OrganizationRepository {
     @PersistenceContext(unitName = "lab1PU")
     EntityManager em;
 
+    /**
+     * Must be the FIRST database statement in a new page transaction. PostgreSQL
+     * keeps one snapshot for count, items and any nested DTO loads, without row or
+     * mutation locks. SET TRANSACTION is local to this transaction (not the pool).
+     */
+    @jakarta.transaction.Transactional(jakarta.transaction.Transactional.TxType.MANDATORY)
+    public void beginPageSnapshot() {
+        em.createNativeQuery("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                .executeUpdate();
+    }
+
+    /**
+     * A single ordered scalar SELECT for every dropdown option. Never compose this
+     * from offset pages: concurrent deletes between HTTP requests can skip live IDs.
+     * Constructor projection avoids hydrating full Organization/Address/Location graphs.
+     */
+    @jakarta.transaction.Transactional(jakarta.transaction.Transactional.TxType.MANDATORY)
+    public List<OrganizationOptionDto> findOptions() {
+        return em.createQuery("select new ru.itmo.is.dto.OrganizationOptionDto(o.id, o.name, o.employeesCount) "
+                        + "from Organization o order by o.id asc", OrganizationOptionDto.class)
+                .getResultList();
+    }
+
     public List<Organization> findAll(int page, int size,
                                       String filterField, String filterValue,
                                       String sortField, String direction) {
@@ -75,6 +99,10 @@ public class OrganizationRepository {
         return em.find(Organization.class, id);
     }
 
+    public void checkVersion(Organization organization) {
+        em.lock(organization, jakarta.persistence.LockModeType.OPTIMISTIC);
+    }
+
     public void persist(Organization organization) {
         em.persist(organization);
     }
@@ -95,17 +123,21 @@ public class OrganizationRepository {
         em.getEntityManagerFactory().getCache().evict(Organization.class, id);
     }
 
+    public static String escapeLike(String value) {
+        return value.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    }
+
     private QueryFilter buildFilter(String field, String value) {
         if (value == null || value.isBlank()) {
             return new QueryFilter("", null);
         }
 
         String normalizedField = field == null || field.isBlank() ? "name" : field;
-        String term = value.trim().toLowerCase();
+        String term = value.trim().toLowerCase(java.util.Locale.ROOT);
 
         if ("type".equals(normalizedField)) {
             List<OrganizationType> types = Arrays.stream(OrganizationType.values())
-                    .filter(type -> type.name().toLowerCase().contains(term))
+                    .filter(type -> type.name().toLowerCase(java.util.Locale.ROOT).contains(term))
                     .toList();
             if (types.isEmpty()) {
                 return new QueryFilter("1 = 0", null);
@@ -117,7 +149,7 @@ public class OrganizationRepository {
         if (path == null) {
             throw new ApiValidationException(List.of("filterField: unsupported field"));
         }
-        return new QueryFilter("lower(" + path + ") like :filterValue", "%" + term + "%");
+        return new QueryFilter("lower(" + path + ") like :filterValue escape '!'", "%" + escapeLike(term) + "%");
     }
 
     private <T> void applyFilterParameter(TypedQuery<T> query, QueryFilter filter) {

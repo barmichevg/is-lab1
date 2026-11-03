@@ -23,7 +23,7 @@ public class OrganizationRequestValidator {
         if (input.getName() == null || input.getName().isBlank()) {
             errors.add("name: must not be blank");
         }
-        if (input.getAnnualTurnover() <= 0) {
+        if (!Float.isFinite(input.getAnnualTurnover()) || input.getAnnualTurnover() <= 0) {
             errors.add("annualTurnover: must be greater than 0");
         }
         if (input.getEmployeesCount() <= 0) {

@@ -3,7 +3,8 @@ package ru.itmo.is.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
-public class AddressDto {
+public class
+AddressDto {
     private Integer id;
 
     @NotNull

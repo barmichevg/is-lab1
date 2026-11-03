@@ -1,0 +1,99 @@
+@startuml
+ title ru.itmo.is — UML диаграмма пакетов (основные зависимости)
+ skinparam packageStyle rectangle
+ skinparam shadowing false
+ left to right direction
+ package "config" as config {
+   class JaxRsApplication
+ }
+ package "resource" as resource {
+   class OrganizationResource
+   class ReferenceDataResource
+   class SpecialOperationsResource
+ }
+ package "service" as service {
+   class OrganizationService
+   class ReferenceDataService
+   class SpecialOperationsService
+   class OrganizationCreationGuard
+   class OrganizationPageService
+   class OrganizationRequestValidator
+   class OrganizationChangeNotifier
+ }
+ package "repository" as repository {
+   class OrganizationRepository
+   class ReferenceDataRepository
+   class SpecialOperationsRepository
+   class MutationLock
+   class IdempotencyRepository
+ }
+ package "mapper" as mapper {
+   class OrganizationMapper
+ }
+ package "dto" as dto {
+   class RequestParser
+   class OrganizationUpsertDto
+   class OrganizationResponseDto
+   class OrganizationPageDto
+   class OrganizationResponseCodec
+   class MergeOrganizationsRequestDto
+ }
+ package "model" as model {
+   class Organization
+   class Coordinates
+   class Address
+   class Location
+   enum OrganizationType
+ }
+ package "exception" as exception {
+   class ApiValidationException
+   class NotFoundException
+   class ApiExceptionMapper
+ }
+ package "security" as security {
+   class AuthFilter
+   class AuthServlet
+   class AuthSessions
+   class UserStore
+   class Passwords
+   class LoginRateLimiter
+ }
+ package "websocket" as websocket {
+   class OrganizationWebSocket
+ }
+ resource ..> service : CDI injection
+ resource ..> dto
+ service ..> repository : CDI injection
+ service ..> mapper
+ service ..> dto
+ service ..> model
+ service ..> exception
+ service ..> websocket : after commit
+ repository ..> model : JPA entities
+ repository ..> exception
+ mapper ..> dto
+ mapper ..> model
+ dto ..> model : OrganizationType
+ dto ..> exception : parsing errors
+ security ..> dto
+ security ..> websocket : close on logout
+ websocket ..> security : validate session
+ note bottom of config
+   @ApplicationPath("/api")
+   Активирует JAX-RS через контейнер;
+   прямого импорта resource нет.
+ end note
+ note bottom of repository
+   @PersistenceContext: JTA EntityManager
+   EclipseLink -> PostgreSQL.
+   SpecialOperationsRepository вызывает
+   пять функций БД через native queries.
+   MutationLock: transaction advisory guard
+   до чтения сущностей (shared/exclusive).
+ end note
+ note bottom of dto
+   Показаны ключевые DTO.
+   Address/Coordinates/Location InputDto
+   и response DTO опущены для читаемости.
+ end note
+@enduml

@@ -82,24 +82,40 @@ public class ReferenceDataRepository {
     }
 
     public void replaceCoordinates(Coordinates source, Coordinates replacement) {
-        em.createQuery("update Organization o set o.coordinates = :replacement where o.coordinates = :source")
+        em.createQuery("update Organization o set o.coordinates = :replacement, o.version = o.version + 1 where o.coordinates = :source")
                 .setParameter("replacement", replacement)
                 .setParameter("source", source)
                 .executeUpdate();
     }
 
     public void replaceAddress(Address source, Address replacement) {
-        em.createQuery("update Organization o set o.officialAddress = :replacement where o.officialAddress = :source")
-                .setParameter("replacement", replacement)
-                .setParameter("source", source)
-                .executeUpdate();
-        em.createQuery("update Organization o set o.postalAddress = :replacement where o.postalAddress = :source")
-                .setParameter("replacement", replacement)
-                .setParameter("source", source)
+        // Change both roles and invalidate each row exactly once. Native SQL avoids
+        // EclipseLink adding its own version increments to separate JPQL updates.
+        em.createNativeQuery("""
+                UPDATE organizations
+                SET official_address_id = CASE WHEN official_address_id = ?1 THEN ?2 ELSE official_address_id END,
+                    postal_address_id = CASE WHEN postal_address_id = ?1 THEN ?2 ELSE postal_address_id END,
+                    version = version + 1
+                WHERE official_address_id = ?1 OR postal_address_id = ?1
+                """)
+                .setParameter(1, source.getId())
+                .setParameter(2, replacement.getId())
                 .executeUpdate();
     }
 
     public void replaceLocation(Location source, Location replacement) {
+        // ReferenceDataService holds the exclusive transaction mutation lock BEFORE
+        // loading source/replacement. No create/update/merge can enter between these
+        // statements; writers committed earlier are included in this version bump.
+        // The Organization row's own fields did not change, but its DTO contains town.
+        // Bump before changing Address.town, while the source predicate matches.
+        em.createQuery("""
+                update Organization o set o.version = o.version + 1
+                where o.officialAddress in (select a from Address a where a.town = :source)
+                   or o.postalAddress in (select a from Address a where a.town = :source)
+                """)
+                .setParameter("source", source)
+                .executeUpdate();
         em.createQuery("update Address a set a.town = :replacement where a.town = :source")
                 .setParameter("replacement", replacement)
                 .setParameter("source", source)

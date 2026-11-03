@@ -1,0 +1,48 @@
+@startuml
+ title Organization — UML диаграмма предметных классов
+ hide methods
+ skinparam classAttributeIconSize 0
+ skinparam shadowing false
+ class Organization <<Entity>> {
+   - id : Integer {generated, > 0}
+   - version : long {JPA @Version}
+   - name : String {not blank}
+   - creationDate : LocalDateTime {generated, read-only}
+   - annualTurnover : float {> 0}
+   - employeesCount : long {> 0}
+   - rating : Integer {not null, > 0}
+   - type : OrganizationType {not null}
+ }
+ class Coordinates <<Entity>> {
+   - id : Integer {generated}
+   - x : int
+   - y : int
+ }
+ class Address <<Entity>> {
+   - id : Integer {generated}
+   - zipCode : String {not null; empty allowed}
+ }
+ class Location <<Entity>> {
+   - id : Integer {generated}
+   - x : Double {not null}
+   - y : Double {not null}
+   - z : int
+   - name : String {not blank}
+ }
+ enum OrganizationType {
+   COMMERCIAL
+   GOVERNMENT
+   PRIVATE_LIMITED_COMPANY
+ }
+ Organization "0..*" --> "1" Coordinates : coordinates
+ Organization "0..*" --> "1" Address : officialAddress
+ Organization "0..*" --> "0..1" Address : postalAddress
+ Address "0..*" --> "1" Location : town
+ Organization ..> OrganizationType
+ note bottom of Address
+   Объекты справочников могут использоваться совместно.
+   Это ассоциации, не композиция с каскадным удалением.
+   При удалении используемого справочника пользователь
+   выбирает замену; входящие ссылки переназначаются.
+ end note
+@enduml

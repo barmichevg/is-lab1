@@ -1,0 +1,30 @@
+{
+  "transport": "Actual Chrome and real Payara HTTP via temporary in-container relay; browser WS events simulated by refresh calls, real WS tested separately by ApiIT.",
+  "tinyTurnover": {
+    "actual": 1e-8,
+    "displayed": "0,00000001"
+  },
+  "closedViewerRemainsClosed": true,
+  "staleApiPut": {
+    "status": 409,
+    "employeesCount": "11",
+    "originalVersion": "1",
+    "newVersion": "2"
+  },
+  "draftRetainedOn409": true,
+  "lastPageDeletion": "1–10 из 10",
+  "selectedOrganizationsPreserved": true,
+  "fractionalMergeRejectedWithoutPost": true,
+  "busyRefresh": {
+    "employeesCount": "14",
+    "displayed": "14",
+    "postCount": 1
+  },
+  "validMerge": {
+    "employeesCount": "20",
+    "version": "1",
+    "postCount": 1
+  },
+  "browserErrors": [],
+  "passed": true
+}
